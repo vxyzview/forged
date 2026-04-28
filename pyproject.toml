@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name            = "forged"
-version         = "1.0.1"
+version         = "1.0.0"
 description     = "FORGED — Android Kernel Builder with AnyKernel3 packaging, powered by Rich TUI"
 readme          = "README.md"
 license         = { text = "MIT" }

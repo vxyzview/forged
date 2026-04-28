@@ -3,7 +3,7 @@ FORGED — Android Kernel Builder with AnyKernel3 packaging.
 Copyright (c) 2026 vxyzview. Made with love.
 """
 
-__version__ = "1.0.1"
+__version__ = "1.0.0"
 __author__  = "vxyzview"
 __license__ = "MIT"
 
