@@ -1,0 +1,89 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.so
+
+# ── Distribution / packaging ──────────────────────────────────────────────────
+dist/
+build/
+*.egg-info/
+*.egg
+MANIFEST
+.eggs/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+
+# ── Virtual environments ──────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+.env
+
+# ── Testing & coverage ────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.cover
+.tox/
+.nox/
+
+# ── Linting / type-checking ───────────────────────────────────────────────────
+.ruff_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ── Build artefacts ───────────────────────────────────────────────────────────
+# Kernel build output
+out/
+
+# Packaged flashable ZIPs
+releases/
+
+# Toolchains managed by forged setup-toolchain
+# (stored in ~/.local/share/kernel-builder/ by default, but may be local)
+toolchains/
+
+# ── AnyKernel3 staging ────────────────────────────────────────────────────────
+# Keep the AnyKernel3/ directory skeleton, but ignore generated/copied files
+AnyKernel3/tools/ak3-core.sh
+AnyKernel3/tools/magiskboot
+AnyKernel3/tools/busybox
+AnyKernel3/modules/
+AnyKernel3/patch/
+AnyKernel3/ramdisk/
+AnyKernel3/anykernel.sh
+AnyKernel3/Image*
+AnyKernel3/zImage*
+AnyKernel3/dtb/
+AnyKernel3/META-INF/com/google/android/update-binary
+AnyKernel3/META-INF/com/google/android/updater-script
+
+# ── Editor & OS ───────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+build.log
+
+# ── Local config overrides ────────────────────────────────────────────────────
+# User-created configs should not be committed unless intended
+build_config.json
+build_config.toml

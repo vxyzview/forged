@@ -1,0 +1,98 @@
+# ════════════════════════════════════════════════════════════════════════════════
+# FORGED — example build configuration (TOML)
+# ════════════════════════════════════════════════════════════════════════════════
+#
+# Copy this file, fill in the values, and run:
+#   forged build --config build_config.toml
+#
+# All paths support ~ (home dir) and $ENV_VAR expansion.
+
+# ── Kernel source ─────────────────────────────────────────────────────────────
+
+# Local path to the kernel source tree.
+kernel_source       = "/path/to/kernel"
+
+# Optional: clone from a remote git URL on first build.
+# kernel_source_url    = "https://github.com/yourorg/kernel.git"
+# kernel_source_branch = "android-13-stable"
+# kernel_source_depth  = 1   # 1 = shallow (fast), 0 = full history
+
+kernel_defconfig    = "defconfig"
+arch                = "arm64"
+subarch             = "arm64"
+
+# ── Build output ──────────────────────────────────────────────────────────────
+
+output_dir          = "out"
+zip_output_dir      = "releases"
+
+# ── Build options ─────────────────────────────────────────────────────────────
+
+jobs                = 0           # 0 = auto-detect (nproc)
+localversion        = ""
+
+# LTO: "thin" | "full" | omit / "" for none
+# lto = "thin"
+
+# Arbitrary make variables appended after all built-in vars.
+# extra_make_flags = ["LLVM=1", "LLVM_IAS=1", "KCFLAGS=-pipe"]
+
+# Arbitrary environment variables injected into the build subprocess.
+# [extra_env]
+# KCPPFLAGS  = "-DDEBUG"
+# KBUILD_VERBOSE = "1"
+
+kbuild_build_user   = "builder"
+kbuild_build_host   = "forged (github.com/vxyzview/forged)"
+
+# ── Toolchain ─────────────────────────────────────────────────────────────────
+#
+# Preset options:
+#   aosp-clang   → downloaded from android.googlesource.com (tarball via aria2)
+#                  Version is controlled by aosp_clang_version below.
+#   system-clang → uses the clang already on $PATH
+#
+# CROSS_COMPILE_ARM32 (arm-linux-gnueabihf-) is automatically set from the
+# preset and does not need to be configured manually.
+
+[toolchain]
+preset               = "aosp-clang"
+
+# AOSP Clang revision to download — only used when preset = "aosp-clang".
+# Change this to fetch a different version, e.g. "r522817", "r450784d".
+aosp_clang_version   = "r584948b"
+
+cc                   = "clang"
+cross_compile        = "aarch64-linux-gnu-"
+# cross_compile_arm32 is set automatically from the preset.
+clang_triple         = "aarch64-linux-gnu-"
+use_llvm_binutils    = true
+auto_clone           = true
+
+# Toolchain auto-download directory (only used when auto_clone = true).
+# Defaults to ~/.local/share/kernel-builder/toolchains when left empty.
+# toolchain_dir = "~/.local/share/kernel-builder/toolchains"
+
+# If you prefer to manage the toolchain yourself, set auto_clone = false and
+# point extra_path at your clang/bin directory:
+#   extra_path = ["~/toolchains/aosp-clang/bin"]
+
+# ── ccache ────────────────────────────────────────────────────────────────────
+
+[ccache]
+enabled             = false
+# dir               = "~/.cache/ccache"
+max_size            = "5G"
+compress            = true
+sloppiness          = "time_macros,include_file_mtime,file_stat_matches,pch_defines"
+
+# ── AnyKernel3 packaging ──────────────────────────────────────────────────────
+
+[anykernel3]
+anykernel_dir       = "AnyKernel3"
+kernel_name         = "Forged"
+block               = "/dev/block/by-name/boot"
+is_slot_device      = 0
+do_devicecheck      = 0
+ramdisk_compression = "auto"
+device_names        = []

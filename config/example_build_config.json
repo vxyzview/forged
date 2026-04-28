@@ -1,0 +1,54 @@
+{
+  "kernel_source": "/path/to/kernel/source",
+  "kernel_source_url": "",
+  "kernel_source_branch": "",
+  "kernel_source_depth": 1,
+  "kernel_defconfig": "vendor/your_device_defconfig",
+  "arch": "arm64",
+  "subarch": "arm64",
+  "output_dir": "out",
+  "zip_output_dir": "releases",
+  "jobs": 0,
+  "lto": "thin",
+  "extra_make_flags": [],
+  "extra_env": {},
+  "kbuild_build_user": "builder",
+  "kbuild_build_host": "forged (github.com/vxyzview/forged)",
+  "localversion": "-KernelBuilder",
+  "toolchain_dir": "",
+  "auto_setup_toolchain": true,
+  "toolchain": {
+    "preset": "aosp-clang",
+    "aosp_clang_version": "r584948b",
+    "cc": "clang",
+    "cross_compile": "aarch64-linux-gnu-",
+    "cross_compile_arm32": "arm-linux-gnueabihf-",
+    "clang_triple": "aarch64-linux-gnu-",
+    "use_llvm_binutils": true,
+    "auto_clone": true,
+    "extra_path": []
+  },
+  "anykernel3": {
+    "anykernel_dir": "AnyKernel3",
+    "kernel_name": "KernelBuilder",
+    "block": "/dev/block/by-name/boot",
+    "is_slot_device": 0,
+    "ramdisk_compression": "auto",
+    "do_devicecheck": 1,
+    "supported_versions": "",
+    "supported_patchlevels": "",
+    "extra_cmds": "",
+    "device_names": [
+      "device_codename",
+      "device_codename_variant"
+    ]
+  },
+  "ccache": {
+    "enabled": false,
+    "dir": "",
+    "max_size": "5G",
+    "sloppiness": "time_macros,include_file_mtime,file_stat_matches,pch_defines",
+    "compress": true,
+    "basedir": ""
+  }
+}
