@@ -287,7 +287,7 @@ func (c *BuildConfig) Validate() error {
 		return fmt.Errorf("invalid lto value %q. Must be one of: [full thin] or empty", c.LTO)
 	}
 	if c.KernelSourceDepth < 0 {
-		return fmt.Errorf("invalid kernel_source_depth %q. Must be 0 (full history) or a positive integer (shallow clone depth)", c.KernelSourceDepth)
+		return fmt.Errorf("invalid kernel_source_depth %d. Must be 0 (full history) or a positive integer (shallow clone depth)", c.KernelSourceDepth)
 	}
 	switch c.Anykernel3.DoModules {
 	case DoModulesAuto, DoModulesOff, DoModulesOn:
