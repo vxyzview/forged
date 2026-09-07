@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test & Vet
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache: true
+
+      - name: gofmt (check only)
+        run: |
+          UNFORMATTED=$(gofmt -l ./cmd ./internal)
+          if [ -n "$UNFORMATTED" ]; then
+            echo "These files are not gofmt-clean:"
+            echo "$UNFORMATTED"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test
+        run: go test -count=1 ./...
+
+      - name: Build smoke test
+        run: |
+          go build -trimpath -ldflags "-s -w -X github.com/vxyzview/forged/internal/config.Version=ci" -o forged ./cmd/forged
+          ./forged --version
+          ./forged doctor || true

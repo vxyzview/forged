@@ -1,0 +1,22 @@
+version: 2
+updates:
+  # Go module dependencies (bubbletea, huh, cobra, ...)
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: deps
+    groups:
+      go-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # GitHub Actions (checkout, setup-go, upload-artifact, ...)
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci

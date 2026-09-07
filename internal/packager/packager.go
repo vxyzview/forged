@@ -32,7 +32,7 @@ const anykernelShTemplate = `# AnyKernel3 Ramdisk Mod Script
 properties() { cat << EOF
 kernel.string={{KERNEL_NAME}} Kernel
 do.devicecheck={{DO_DEVICECHECK}}
-do.modules=0
+do.modules={{DO_MODULES}}
 do.systemless=1
 do.cleanup=1
 do.cleanuponabort=0
@@ -138,7 +138,9 @@ func (p *Packager) log(line string) {
 }
 
 // renderAnykernelSh fills the anykernel.sh template from the config.
-func (p *Packager) renderAnykernelSh() string {
+// hasModules reports whether kernel modules were staged for this build; it
+// drives the effective do.modules value in auto mode.
+func (p *Packager) renderAnykernelSh(hasModules bool) string {
 	names := make([]string, 5)
 	for i := 0; i < 5; i++ {
 		if i < len(p.ak3.DeviceNames) {
@@ -149,6 +151,7 @@ func (p *Packager) renderAnykernelSh() string {
 	replacer := strings.NewReplacer(
 		"{{KERNEL_NAME}}", p.ak3.KernelName,
 		"{{DO_DEVICECHECK}}", fmt.Sprintf("%d", p.ak3.DoDevicecheck),
+		"{{DO_MODULES}}", fmt.Sprintf("%d", p.effectiveDoModules(hasModules)),
 		"{{DEVICE_NAME1}}", names[0],
 		"{{DEVICE_NAME2}}", names[1],
 		"{{DEVICE_NAME3}}", names[2],
@@ -162,6 +165,28 @@ func (p *Packager) renderAnykernelSh() string {
 		"{{EXTRA_CMDS}}", p.ak3.ExtraCmds,
 	)
 	return replacer.Replace(anykernelShTemplate)
+}
+
+// effectiveDoModules resolves the configured do_modules value into the
+// AnyKernel3 do.modules property:
+//
+//	-1 (auto) — 1 when modules were staged, 0 otherwise
+//	 0        — never install modules
+//	 1        — always install modules
+//
+// Any other config value is treated as auto.
+func (p *Packager) effectiveDoModules(hasModules bool) int {
+	switch p.ak3.DoModules {
+	case config.DoModulesOff:
+		return 0
+	case config.DoModulesOn:
+		return 1
+	default:
+		if hasModules {
+			return 1
+		}
+		return 0
+	}
 }
 
 // ensureStructure creates required AnyKernel3 directories and forged's
@@ -365,7 +390,7 @@ func (p *Packager) Prepare(kernelImage string, dtbFiles, moduleFiles []string) e
 	}
 
 	akSh := filepath.Join(p.AnykernelBase, "anykernel.sh")
-	if err := os.WriteFile(akSh, []byte(p.renderAnykernelSh()), 0o644); err != nil {
+	if err := os.WriteFile(akSh, []byte(p.renderAnykernelSh(len(moduleFiles) > 0)), 0o644); err != nil {
 		return err
 	}
 

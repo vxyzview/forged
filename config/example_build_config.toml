@@ -108,5 +108,9 @@ kernel_name         = "Forged"
 block               = "/dev/block/by-name/boot"
 is_slot_device      = 0
 do_devicecheck      = 0
+# Kernel module installation (AnyKernel3 do.modules):
+#   -1 = auto — install when the build produced modules (default)
+#    0 = never · 1 = always
+do_modules          = -1
 ramdisk_compression = "auto"
 device_names        = []

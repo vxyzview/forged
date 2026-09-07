@@ -7,6 +7,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -77,6 +78,9 @@ func Execute() int {
 	rootCmd.SilenceErrors = true
 	rootCmd.SilenceUsage = true
 	if err := rootCmd.Execute(); err != nil {
+		if errors.Is(err, errSilent) {
+			return 1
+		}
 		fmt.Fprintln(os.Stderr, boxErr.Render(styleErr.Bold(true).Render("  ✗  Fatal Error  ")+"\n\n  "+err.Error()))
 		return 1
 	}
@@ -910,6 +914,7 @@ func init() {
 	rootCmd.AddCommand(newConfigCmd())
 	rootCmd.AddCommand(newInfoCmd())
 	rootCmd.AddCommand(newCcacheStatsCmd())
+	rootCmd.AddCommand(newDoctorCmd())
 	rootCmd.Version = config.Version
 	rootCmd.SetVersionTemplate("forged {{.Version}}\n")
 }

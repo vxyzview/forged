@@ -144,6 +144,7 @@ type AnyKernel3Config struct {
 	KernelName           string   `json:"kernel_name" toml:"kernel_name"`
 	Block                string   `json:"block" toml:"block"`
 	IsSlotDevice         int      `json:"is_slot_device" toml:"is_slot_device"`
+	DoModules            int      `json:"do_modules" toml:"do_modules"`
 	RamdiskCompression   string   `json:"ramdisk_compression" toml:"ramdisk_compression"`
 	DoDevicecheck        int      `json:"do_devicecheck" toml:"do_devicecheck"`
 	SupportedVersions    string   `json:"supported_versions" toml:"supported_versions"`
@@ -173,6 +174,17 @@ const DefaultAnyKernel3Repo = "https://github.com/osm0sis/AnyKernel3"
 // AnyKernel3SourceModes lists the source modes in display order.
 var AnyKernel3SourceModes = []string{AK3SourceOsm0sis, AK3SourceGit, AK3SourceLocal, AK3SourceStub}
 
+// DoModules special values for AnyKernel3Config.DoModules.
+const (
+	// DoModulesAuto installs staged kernel modules (anykernel3 do.modules=1)
+	// and skips the step when none were built. The default.
+	DoModulesAuto = -1
+	// DoModulesOff never installs modules, even when staged.
+	DoModulesOff = 0
+	// DoModulesOn always asks AnyKernel3 to install modules.
+	DoModulesOn = 1
+)
+
 // NewAnyKernel3Config returns the default AnyKernel3 settings.
 func NewAnyKernel3Config() AnyKernel3Config {
 	return AnyKernel3Config{
@@ -184,6 +196,7 @@ func NewAnyKernel3Config() AnyKernel3Config {
 		KernelName:           "kernel",
 		Block:                "/dev/block/by-name/boot",
 		IsSlotDevice:         0,
+		DoModules:            DoModulesAuto,
 		RamdiskCompression:   "auto",
 		DoDevicecheck:        1,
 		SupportedVersions:    "",
@@ -275,6 +288,12 @@ func (c *BuildConfig) Validate() error {
 	}
 	if c.KernelSourceDepth < 0 {
 		return fmt.Errorf("invalid kernel_source_depth %q. Must be 0 (full history) or a positive integer (shallow clone depth)", c.KernelSourceDepth)
+	}
+	switch c.Anykernel3.DoModules {
+	case DoModulesAuto, DoModulesOff, DoModulesOn:
+		// valid: -1 (auto), 0 (never), 1 (always)
+	default:
+		return fmt.Errorf("invalid anykernel3 do_modules value %d. Must be -1 (auto), 0 (never) or 1 (always)", c.Anykernel3.DoModules)
 	}
 	return nil
 }

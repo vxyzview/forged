@@ -174,6 +174,75 @@ func TestPrepareModulesNoNameCollision(t *testing.T) {
 	}
 }
 
+func TestDoModulesAutoStagesAndInstalls(t *testing.T) {
+	cfg := config.New()
+	cfg.Anykernel3.KernelName = "AutoMod"
+	ak3Dir := filepath.Join(t.TempDir(), "AnyKernel3")
+	p := New(cfg, ak3Dir)
+
+	image := filepath.Join(t.TempDir(), "Image")
+	if err := os.WriteFile(image, make([]byte, 32), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Without modules: do.modules must be 0.
+	if err := p.Prepare(image, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	content, _ := os.ReadFile(filepath.Join(ak3Dir, "anykernel.sh"))
+	if !strings.Contains(string(content), "do.modules=0") {
+		t.Errorf("auto mode without modules must render do.modules=0, got:\n%s", content)
+	}
+
+	// With modules: do.modules must flip to 1.
+	mod := filepath.Join(t.TempDir(), "wifi.ko")
+	if err := os.WriteFile(mod, []byte{0x7f}, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	p2 := New(cfg, filepath.Join(t.TempDir(), "AnyKernel3"))
+	if err := p2.Prepare(image, nil, []string{mod}); err != nil {
+		t.Fatal(err)
+	}
+	content2, _ := os.ReadFile(filepath.Join(p2.AnykernelBase, "anykernel.sh"))
+	if !strings.Contains(string(content2), "do.modules=1") {
+		t.Errorf("auto mode with modules must render do.modules=1, got:\n%s", content2)
+	}
+}
+
+func TestDoModulesExplicitOverride(t *testing.T) {
+	mod := filepath.Join(t.TempDir(), "x.ko")
+	if err := os.WriteFile(mod, []byte{0x7f}, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	image := filepath.Join(t.TempDir(), "Image")
+	if err := os.WriteFile(image, make([]byte, 32), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Off: even with modules staged, do.modules stays 0.
+	cfg := config.New()
+	cfg.Anykernel3.DoModules = config.DoModulesOff
+	p := New(cfg, filepath.Join(t.TempDir(), "AnyKernel3"))
+	if err := p.Prepare(image, nil, []string{mod}); err != nil {
+		t.Fatal(err)
+	}
+	content, _ := os.ReadFile(filepath.Join(p.AnykernelBase, "anykernel.sh"))
+	if !strings.Contains(string(content), "do.modules=0") {
+		t.Errorf("do_modules = 0 must render do.modules=0, got:\n%s", content)
+	}
+
+	// On: even with no modules, do.modules is 1.
+	cfg2 := config.New()
+	cfg2.Anykernel3.DoModules = config.DoModulesOn
+	p2 := New(cfg2, filepath.Join(t.TempDir(), "AnyKernel3"))
+	if err := p2.Prepare(image, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	content2, _ := os.ReadFile(filepath.Join(p2.AnykernelBase, "anykernel.sh"))
+	if !strings.Contains(string(content2), "do.modules=1") {
+		t.Errorf("do_modules = 1 must render do.modules=1, got:\n%s", content2)
+	}
+}
+
 func TestZipIsStableOnFailure(t *testing.T) {
 	// Creating a zip from a missing base dir must not leave a partial zip.
 	p, _ := makePackager(t)

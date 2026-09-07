@@ -37,6 +37,7 @@
     "kernel_name": "KernelBuilder",
     "block": "/dev/block/by-name/boot",
     "is_slot_device": 0,
+    "do_modules": -1,
     "ramdisk_compression": "auto",
     "do_devicecheck": 1,
     "supported_versions": "",

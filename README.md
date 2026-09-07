@@ -13,6 +13,7 @@
 
 `mrproper → defconfig → clang → AnyKernel3 zip`
 
+[![CI](https://github.com/vxyzview/forged/actions/workflows/ci.yml/badge.svg?style=flat-square)](https://github.com/vxyzview/forged/actions/workflows/ci.yml)
 [![Code Quality](https://img.shields.io/badge/code%20quality-A-3FB950?style=flat-square)](https://github.com/vxyzview/forged/actions/workflows/release.yml)
 [![Go](https://img.shields.io/badge/Go-1.24%2B-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev)
 [![LLVM / Clang](https://img.shields.io/badge/Toolchain-LLVM%20%2F%20Clang-39D353?style=flat-square&logo=llvm&logoColor=white)](https://llvm.org)
@@ -160,7 +161,7 @@ forged build --source-url https://github.com/you/kernel.git \
 | `--toolchain-dir DIR` | Storage path (default `~/.local/share/forged/toolchains`) |
 | `--install-cross-compilers` | Auto-install GNU cross-compilers |
 
-**`forged config`** — wizard, saves a config · **`forged info`** — print a config summary · **`forged ccache-stats`** — cache statistics, `--zero` to reset
+**`forged config`** — wizard, saves a config · **`forged info`** — print a config summary · **`forged ccache-stats`** — cache statistics, `--zero` to reset · **`forged doctor`** — verify the build environment (git, make, clang, LLVM binutils, cross-compilers, ccache, aria2, disk space) with fix hints for everything missing
 
 ---
 
@@ -172,6 +173,9 @@ kernel_defconfig = "vendor/your_device_defconfig"
 arch             = "arm64"
 jobs             = 0        # 0 = auto
 
+# Sanity-check the environment before debugging anything else:
+#   forged doctor
+
 [toolchain]
 preset             = "aosp-clang"
 aosp_clang_version = "r584948b"
@@ -180,6 +184,7 @@ auto_clone         = true
 [anykernel3]
 source         = "osm0sis"       # osm0sis | git | local | stub
 # repo_url     = "https://github.com/you/AnyKernel3-fork"   # git / local modes
+# do_modules   = -1              # -1 auto (default) | 0 never | 1 always
 kernel_name    = "Forged"
 block          = "/dev/block/by-name/boot"
 device_names   = ["your_device"]
@@ -251,6 +256,12 @@ Safe. Thin LTO needs ccache ≥ 4.0, full LTO ≥ 4.8. forged handles the passth
 
 **Where are the build errors?**
 Every run writes an errors + warnings digest to `out/logs/` — grep-friendly, no TUI scrolling.
+
+**Are my built modules actually installed?**
+Yes — as of `do_modules = -1` (auto): when the build produces `.ko` files, forged sets AnyKernel3's `do.modules=1` so they land in `/system/lib/modules`. Force with `1`, disable with `0`.
+
+**Is my host ready to build?**
+`forged doctor` — checks git, make, clang, LLVM binutils, cross-compilers, ccache, aria2 and free disk space, printing a fix command for anything missing.
 
 **Does it work on macOS / Windows?**
 The binary runs, and config / info / clone workflows work great. Actual kernel compilation needs Linux — see [Install](#install).

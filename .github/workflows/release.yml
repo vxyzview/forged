@@ -129,6 +129,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: forged ${{ github.ref_name }}
+          generate_release_notes: true
           body: |
             ## forged ${{ github.ref_name }}
 
