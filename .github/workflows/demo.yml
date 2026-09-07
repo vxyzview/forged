@@ -56,10 +56,16 @@ jobs:
 
       - name: Commit rendered GIF (if changed)
         run: |
-          if git diff --quiet docs/demo.gif; then
-            echo "GIF unchanged — nothing to commit"
-          else
-            git add docs/demo.gif
+          if [ ! -f docs/demo.gif ]; then
+            echo "vhs did not produce docs/demo.gif" >&2
+            exit 1
+          fi
+          # `git diff --quiet` only sees tracked files; demo.gif is
+          # .gitattributes-ignored, so check the index/untracked state too.
+          if git status --porcelain docs/demo.gif | grep -q .; then
+            git add -f docs/demo.gif
             git commit -m "docs: refresh demo GIF [skip ci]"
             git push
+          else
+            echo "GIF unchanged — nothing to commit"
           fi
