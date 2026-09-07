@@ -21,13 +21,13 @@ on:
         description: "Defconfig to build (overrides KERNEL_DEFCONFIG)"
         required: false
         default: ""
-  # NOTE: remove the `on: push/pull_request` triggers below if you only want
-  # manual builds. As shipped, the template also builds on every push —
-  # handy while wiring up your defconfig, noisy once it's green.
-  push:
-    branches: [main, master]
-    tags: ["v*"]
-  pull_request:
+  # Uncomment to also build on every push / PR (handy while wiring up your
+  # defconfig; noisy once it's green — a kernel build is ~30-60 min):
+  #
+  # push:
+  #   branches: [main, master]
+  #   tags: ["v*"]
+  # pull_request:
 
 env:
   # ── Edit these ──────────────────────────────────────────────────
