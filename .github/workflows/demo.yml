@@ -51,8 +51,19 @@ jobs:
       - name: Install vhs
         run: go install github.com/charmbracelet/vhs@latest
 
+      # The tape records a full fixture build plus `forged doctor` and
+      # `forged info` — all real output, nothing staged.
       - name: Render demo GIF
         run: vhs docs/demo.tape
+
+      - name: Check GIF size (README embed must stay reasonable)
+        run: |
+          ls -lh docs/demo.gif
+          # Warn (not fail) if the GIF balloons past ~6 MB
+          SIZE=$(stat -c%s docs/demo.gif)
+          if [ "$SIZE" -gt 6291456 ]; then
+            echo "::warning::docs/demo.gif is $((SIZE/1048576)) MB — consider trimming Sleeps in docs/demo.tape"
+          fi
 
       - name: Commit rendered GIF (if changed)
         run: |

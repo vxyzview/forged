@@ -18,19 +18,31 @@ Set Margin 30
 Set MarginFill "#1d2021"
 Set BorderRadius 10
 
+# ── 1 · Banner + version ─────────────────────────────────────────────
 Type "forged --version" Enter
-Sleep 700ms
+Sleep 1.2s
 
+# ── 2 · Environment doctor ───────────────────────────────────────────
 Type "forged doctor" Enter
-Sleep 2.5s
+Sleep 3s
 
-# Build the committed fixture kernel tree end-to-end.
+# ── 3 · Full build of the committed fixture kernel tree ─────────────
 Type@250ms "forged build --ci --source test/fixtures/kernel-fixture --defconfig ci_defconfig --toolchain-extra-path /usr/bin --version-tag demo"
 Sleep 500ms
 Enter
-Sleep 6s
+Sleep 7s
 
-Type "ls releases/" Enter
-Sleep 900ms
+# ── 4 · The flashable ZIP ────────────────────────────────────────────
+Type "ls -lh releases/" Enter
+Sleep 1.2s
+
+# ── 5 · Built-in config explorer ─────────────────────────────────────
+Type "forged info config/example_build_config.toml" Enter
+Sleep 3s
+
+# ── 6 · Where to go next ─────────────────────────────────────────────
+Type@80ms "echo 'next: forged config  ·  forged setup-toolchain  ·  https://github.com/vxyzview/forged'"
+Enter
+Sleep 1.5s
 
 Sleep 600ms

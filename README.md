@@ -72,8 +72,6 @@ One static binary. No interpreter, no runtime, no GCC.
 - **LTO aware** — `thin` / `full`, transparent alongside ccache ≥ 4.0.
 - **Issues log** — every build writes an errors + warnings digest under `out/logs/`, so you never scroll the TUI for that one warning again.
 
-Once the [demo workflow](.github/workflows/demo.yml) renders, a GIF walkthrough lives here too — see [`docs/demo.tape`](docs/demo.tape).
-
 ---
 
 ## Install
@@ -117,6 +115,14 @@ docker run --rm -it -v "$PWD/my-kernel":/work -w /work forged
 
 > [!NOTE]
 > Kernel builds need Linux. That's a given on Linux; on Windows use **WSL2** and on macOS use the **Docker** image — see [`docs/windows-macos.md`](docs/windows-macos.md) for the walk-through. The native macOS/Windows binaries handle configs, source management, and SSH workflows against a remote Linux box (the wizard auto-switches to `system-clang` there and prints the right install hint).
+
+---
+
+<div align="center">
+
+<img src="docs/demo.gif" alt="forged — build an Android kernel end-to-end in one command" width="820">
+
+</div>
 
 ---
 
