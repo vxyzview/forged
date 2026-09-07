@@ -464,6 +464,9 @@ func finishBuild(cfg *config.BuildConfig, b *builder.KernelBuilder, results []bu
 		ts := time.Now().Format("20060102_150405")
 		logFile = filepath.Join(sourceRoot, cfg.OutputDir, "logs", "forged_issues_"+ts+".log")
 	}
+	if abs, err := filepath.Abs(logFile); err == nil {
+		logFile = abs
+	}
 	errCount, warnCount := saveIssuesLog(logFile, cfg, results, allLines)
 	if errCount+warnCount == 0 {
 		okLine(fmt.Sprintf("Log saved  %s  (no issues found)", styleDim.Render(logFile)))
@@ -528,6 +531,12 @@ func finishBuild(cfg *config.BuildConfig, b *builder.KernelBuilder, results []bu
 				return fmt.Errorf("zip creation failed: %w", err)
 			}
 			zipPath = zp
+			// The ZIP lives relative to the kernel source root (its git-ignored
+			// output area), but CI consumers and the farewell banner speak in
+			// absolute paths — resolve before reporting/writing outputs.
+			if abs, err := filepath.Abs(zp); err == nil {
+				zipPath = abs
+			}
 			var sizeMB float64
 			if fi, err := os.Stat(zp); err == nil {
 				sizeMB = float64(fi.Size()) / 1048576

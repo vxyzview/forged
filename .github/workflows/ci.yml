@@ -81,6 +81,10 @@ jobs:
           test -n "$(ls test/fixtures/kernel-fixture/releases/*.zip)" || { echo "no ZIP produced"; exit 1; }
           grep -q "outcome=success" "$GITHUB_OUTPUT"
           grep -q "zip_path=" "$GITHUB_OUTPUT"
+          # zip_path must point at the real artifact (absolute, inside the fixture)
+          ZP=$(sed -n 's/^zip_path=//p' "$GITHUB_OUTPUT")
+          test -f "$ZP"
+          unzip -l "$ZP" | grep -q anykernel.sh
 
       - name: E2E — verify ZIP contents (no VCS metadata, has payload)
         run: |

@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -249,6 +250,9 @@ func TestCloneKernelSourceCommandShape(t *testing.T) {
 }
 
 func TestCheckGnuCrossCompilers(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("apt package hints are linux-specific")
+	}
 	var logs []string
 	result := CheckGnuCrossCompilers(func(l string) { logs = append(logs, l) })
 	if _, ok := result["aarch64"]; !ok {
@@ -256,6 +260,10 @@ func TestCheckGnuCrossCompilers(t *testing.T) {
 	}
 	if _, ok := result["arm"]; !ok {
 		t.Error("arm key missing")
+	}
+	if result["aarch64"] != "" && result["arm"] != "" {
+		// Both installed on this host — no hint expected.
+		return
 	}
 	joined := strings.Join(logs, "\n")
 	if !strings.Contains(joined, "sudo apt install") {
