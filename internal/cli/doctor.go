@@ -191,17 +191,17 @@ func diskSpaceCheck(dir string) []check {
 	}}
 }
 
-const doctorOKBoxTmpl = "  ✦  All checks passed — ready to forge."
+const doctorOKBoxTmpl = "✓ All checks passed — ready to forge."
 
 // printDoctor renders the check table and a summary box. Returns non-zero
 // when any required check failed (used as the process exit status).
 func printDoctor(res *doctorResult) int {
-	fmt.Println(stylePrimary.Render("  ━━━  ✚  FORGED DOCTOR  ✚  ━━━  "))
+	fmt.Println(stylePrimary.Bold(true).Render("FORGED DOCTOR"))
 	fmt.Println()
 
 	if res.fatal != "" {
 		fmt.Println(boxWarn.Render(
-			styleWarn.Bold(true).Render("  ▲  Host limitation  ") + "\n\n  " + styleWarn.Render(res.fatal)))
+			styleWarn.Bold(true).Render("▲ Host limitation") + "\n\n  " + styleWarn.Render(res.fatal)))
 		fmt.Println()
 	}
 
@@ -229,7 +229,7 @@ func printDoctor(res *doctorResult) int {
 	}
 	fmt.Println(boxWarn.Render(
 		fmt.Sprintf("  %s\n\n  %d of %d checks failed.",
-			styleWarn.Bold(true).Render("  ▲  Attention needed  "), failed, len(res.checks))))
+			styleWarn.Bold(true).Render("▲ Attention needed"), failed, len(res.checks))))
 	fmt.Println()
 	return 1
 }

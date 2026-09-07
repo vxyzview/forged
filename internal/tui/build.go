@@ -20,7 +20,7 @@ import (
 	"github.com/vxyzview/forged/internal/builder"
 )
 
-// ── Palette (forge-fire, solid terminal colours) ─────────────────────────────
+// ── Palette (solid terminal colours, no gradients) ───────────────────────────
 
 var (
 	primary   = lipgloss.Color("#ff7c00")
@@ -45,14 +45,15 @@ var (
 	makeRe  = regexp.MustCompile(`^\s*make\[`)
 )
 
-// phaseIcons maps build steps to display icons.
+// phaseIcon maps build steps to a single quiet glyph — the step name carries
+// the meaning; the mark only says "phase".
 var phaseIcons = map[string]string{
-	"mrproper":  "◈",
-	"defconfig": "◉",
-	"compile":   "⬡",
-	"clone":     "↓",
-	"package":   "◎",
-	"setup":     "⚙",
+	"mrproper":  "·",
+	"defconfig": "·",
+	"compile":   "·",
+	"clone":     "·",
+	"package":   "·",
+	"setup":     "·",
 }
 
 func phaseIcon(name string) string {
@@ -61,7 +62,7 @@ func phaseIcon(name string) string {
 			return icon
 		}
 	}
-	return "◆"
+	return "·"
 }
 
 // Colourise applies colour hints to a raw compiler/make output line. It is
@@ -83,13 +84,13 @@ func Colourise(line string) string {
 	case noteRe.MatchString(line):
 		return prefix("  ›  ", "#a8b2c0")
 	case okRe.MatchString(line):
-		return prefix("  ✦  ", "#39d353")
+		return prefix("  ✓  ", "#39d353")
 	case linkRe.MatchString(line):
-		return prefix("  ⬡  ", "#ff9f2f")
+		return prefix("  ·  ", "#ff9f2f")
 	case genRe.MatchString(line):
-		return prefix("  ◉  ", "#c8d0d8")
+		return prefix("  ·  ", "#c8d0d8")
 	case ccRe.MatchString(line):
-		return prefix("  ◆  ", "#d8e0e8")
+		return prefix("  ·  ", "#d8e0e8")
 	case makeRe.MatchString(line):
 		return "     " + lipgloss.NewStyle().Foreground(dim).Render(stripped)
 	default:
@@ -117,6 +118,10 @@ type TickMsg time.Time
 
 // DoneMsg signals the runner goroutine finished all steps.
 type DoneMsg struct{}
+
+// quitSoonMsg is delivered ~1.5s after the final step completes; the model
+// responds with tea.Quit so the TUI never strands the user on a final frame.
+type quitSoonMsg struct{}
 
 // ── Build state machine ──────────────────────────────────────────────────────
 
@@ -219,18 +224,20 @@ func (m BuildModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		headerHeight := 9
-		footerHeight := 3
+		// Chrome is now flat: one header line + one progress line above the
+		// log, the step list below — smaller reserve than the old boxed UI.
+		headerHeight := 2
+		footerHeight := 4
 		logHeight := m.height - headerHeight - footerHeight
 		if logHeight < 5 {
 			logHeight = 5
 		}
 		if !m.ready {
-			m.viewport = viewport.New(msg.Width-4, logHeight)
+			m.viewport = viewport.New(msg.Width, logHeight)
 			m.viewport.SetContent("")
 			m.ready = true
 		} else {
-			m.viewport.Width = msg.Width - 4
+			m.viewport.Width = msg.Width
 			m.viewport.Height = logHeight
 		}
 
@@ -265,7 +272,16 @@ func (m BuildModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(m.results) >= m.total && m.total > 0 {
 			m.done = true
 			m.elapsed = time.Since(m.startTime)
+			// Auto-quit shortly after the last step lands: the build is
+			// finished, so the TUI hands control back to the summary that
+			// follows. No more dead-end screens waiting for a keypress.
+			cmds = append(cmds, tea.Tick(1500*time.Millisecond, func(time.Time) tea.Msg {
+				return quitSoonMsg{}
+			}))
 		}
+
+	case quitSoonMsg:
+		return m, tea.Quit
 
 	case DoneMsg:
 		// Runner channel closed; nothing further to pull.
@@ -306,42 +322,38 @@ func colourisedTail(lines []string) []string {
 }
 
 // View renders the whole screen: header, progress, log viewport, footer.
+// Minimalist: three flat sections, no nested boxes, no decorative chrome.
 func (m BuildModel) View() string {
 	if m.width == 0 {
 		return "  ◆  FORGED — preparing live build display…\n"
 	}
 
-	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(primary)
 	dimStyle := lipgloss.NewStyle().Foreground(dim)
 
-	// ── Header ──
+	// ── Header: FORGED · STEP [n/N] · clock, one line ──
 	stepLabel := m.current
 	if stepLabel == "" && len(m.stepNames) > 0 {
 		stepLabel = m.stepNames[0]
 	}
-	header := headerStyle.Render(fmt.Sprintf("  %s  %s  FORGED  ·  %s  [%d/%d]",
-		m.spinner.View(), phaseIcon(stepLabel), strings.ToUpper(stepLabel), m.stepIndex, m.total))
+	header := lipgloss.NewStyle().Bold(true).Foreground(primary).
+		Render("FORGED") +
+		dimStyle.Render("  ·  ") +
+		lipgloss.NewStyle().Bold(true).Foreground(steel).
+			Render(strings.ToUpper(stepLabel)) +
+		dimStyle.Render(fmt.Sprintf("  [%d/%d]", m.stepIndex, m.total)) +
+		dimStyle.Render("  "+formatDuration(m.elapsed)) +
+		"  " + m.spinner.View()
+
+	// ── Progress: thin single-row bar ──
 	done := len(m.results)
 	bar := progressBar(done, m.total, barInnerWidth(m.width))
-	progress := fmt.Sprintf("  %s %s  %s",
-		bar,
-		lipgloss.NewStyle().Bold(true).Foreground(secondary).Render(fmt.Sprintf("%d/%d", done, m.total)),
-		dimStyle.Render(formatDuration(m.elapsed)),
-	)
+	progress := "  " + bar + dimStyle.Render(fmt.Sprintf("  %d/%d", done, m.total))
 
-	// ── Log viewport ──
-	logPanel := "(waiting for output…)"
+	// ── Log viewport: bare, no surrounding box ──
+	logPanel := dimStyle.Render("  waiting for output…")
 	if m.ready {
-		title := lipgloss.NewStyle().Bold(true).Foreground(secondary).Render(fmt.Sprintf("  ◉  BUILD OUTPUT  ·  %d lines  ", m.lineCount))
-		box := lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(primary).
-			Width(m.width - 2)
-		logPanel = box.Render(title + "\n" + m.viewport.View())
+		logPanel = m.viewport.View()
 	}
-
-	// ── Footer ──
-	footer := dimStyle.Render("  q / ctrl+c — quit")
 
 	// ── Step results so far ──
 	var resultLines []string
@@ -349,15 +361,15 @@ func (m BuildModel) View() string {
 		if r.Success {
 			resultLines = append(resultLines,
 				lipgloss.NewStyle().Foreground(success).Render(
-					fmt.Sprintf("  ✦  %s  PASSED  (%.2fs)", r.Step, r.Duration)))
+					fmt.Sprintf("  ✓  %s", r.Step))+
+					dimStyle.Render(fmt.Sprintf("  %.2fs", r.Duration)))
 		} else {
 			resultLines = append(resultLines,
 				lipgloss.NewStyle().Foreground(fail).Render(
-					fmt.Sprintf("  ✗  %s  FAILED  (%.2fs)  —  %s", r.Step, r.Duration, r.Error)))
+					fmt.Sprintf("  ✗  %s  %s", r.Step, r.Error)))
 		}
 	}
 	results := strings.Join(resultLines, "\n")
-	_ = footer
 
 	return strings.Join([]string{header, progress, logPanel, results}, "\n")
 }
@@ -375,8 +387,8 @@ func progressBar(done, total, width int) string {
 	if total > 0 {
 		filled = done * width / total
 	}
-	fill := lipgloss.NewStyle().Foreground(primary).Render(strings.Repeat("━", filled))
-	empty := lipgloss.NewStyle().Foreground(lipgloss.Color("#2a1000")).Render(strings.Repeat("━", width-filled))
+	fill := lipgloss.NewStyle().Foreground(primary).Render(strings.Repeat("─", filled))
+	empty := lipgloss.NewStyle().Foreground(lipgloss.Color("#3a3a3a")).Render(strings.Repeat("─", width-filled))
 	return fill + empty
 }
 
@@ -419,43 +431,46 @@ func RenderResultsTable(results []builder.BuildResult, zipPath string) string {
 		}
 	}
 
-	heading := "  ✦  ALL STEPS PASSED  "
+	heading := "  ✓  ALL STEPS PASSED  "
 	headingColour := success
 	if !allOK {
 		heading = "  ✗  BUILD FAILED  "
 		headingColour = fail
 	}
 
-	title := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#ffffff")).
-		Background(headingColour).Padding(0, 1).Render(heading)
+	title := lipgloss.NewStyle().Bold(true).Foreground(headingColour).
+		Padding(0, 1).Render(heading)
 
-	var rows []string
-	headerRow := fmt.Sprintf("%-14s  %-10s  %10s",
-		lipgloss.NewStyle().Bold(true).Foreground(steel).Render("STEP"),
-		lipgloss.NewStyle().Bold(true).Foreground(steel).Render("STATUS"),
-		lipgloss.NewStyle().Bold(true).Foreground(steel).Render("DURATION"),
-	)
-	rows = append(rows, headerRow, strings.Repeat("─", 40))
-
+	// Column padding is computed on the un-styled text: ANSI escapes would
+	// otherwise skew %-14s width bookkeeping.
+	rows := []string{"STEP            STATUS      TIME", strings.Repeat("─", 38)}
 	for _, r := range results {
-		status := lipgloss.NewStyle().Bold(true).Foreground(success).Render("✦  PASS")
+		status, mark := "pass", "✓"
 		if !r.Success {
-			status = lipgloss.NewStyle().Bold(true).Foreground(fail).Render("✗  FAIL")
+			status, mark = "fail", "✗"
 		}
-		rows = append(rows, fmt.Sprintf("%-14s  %-10s  %10.2fs", r.Step, status, r.Duration))
+		rows = append(rows, fmt.Sprintf("%-14s  %s %s  %9.2fs",
+			r.Step,
+			lipgloss.NewStyle().Foreground(markColour(r.Success)).Render(mark),
+			status, r.Duration))
 	}
-	rows = append(rows, strings.Repeat("─", 40))
-	rows = append(rows, fmt.Sprintf("%-14s  %-10s  %10.2fs", "Total", "", total))
+	rows = append(rows, strings.Repeat("─", 38), fmt.Sprintf("total                        %9.2fs", total))
 
 	if zipPath != "" {
-		rows = append(rows, "")
-		rows = append(rows, lipgloss.NewStyle().Foreground(secondary).Render("◎  Output ZIP: "+zipPath))
+		rows = append(rows, "", lipgloss.NewStyle().Foreground(secondary).Render("→ "+zipPath))
 	}
 
 	body := strings.Join(rows, "\n")
 	return lipgloss.NewStyle().
-		Border(lipgloss.ThickBorder()).
+		Border(lipgloss.RoundedBorder()).
 		BorderForeground(headingColour).
 		Padding(0, 2).
 		Render(title + "\n\n" + body)
+}
+
+func markColour(ok bool) lipgloss.Color {
+	if ok {
+		return success
+	}
+	return fail
 }

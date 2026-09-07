@@ -1,4 +1,4 @@
-// Package banner renders the FORGED ASCII startup banner and farewell panel
+// Package banner renders the FORGED startup banner and farewell panel
 // using lipgloss styling.
 //
 // FORGED — Android Kernel Builder
@@ -14,7 +14,7 @@ import (
 	"github.com/vxyzview/forged/internal/config"
 )
 
-// Banner is the FORGED ASCII art.
+// Banner is the FORGED ASCII art (figlet "ANSI Shadow" style).
 const Banner = `
  ▄████  ▒█████   ██▀███    ▄████ ▓█████ ▓█████▄
  ██▒ ▀█▒▒██▒  ██▒▓██ ▒ ██▒ ██▒ ▀█▒▓█   ▀ ▒██▀ ██▌
@@ -31,79 +31,53 @@ const (
 	copyright = "© 2026 vxyzview  —  Made with love"
 )
 
-var badges = []struct {
-	label  string
-	colour lipgloss.Color
-}{
-	{"  AOSP Clang  ", lipgloss.Color("#ff7c00")},
-	{"  AnyKernel3  ", lipgloss.Color("#ffbe00")},
-	{"  arm64 · arm  ", lipgloss.Color("#a8b2c0")},
-	{"   LTO Ready   ", lipgloss.Color("#39d353")},
-	{"   ccache ⚡   ", lipgloss.Color("#ff9f2f")},
-}
+var badges = []string{"AOSP Clang", "AnyKernel3", "arm64 · arm", "LTO", "ccache"}
 
 // Print renders the FORGED startup banner to stdout.
+// Minimalist: the wordmark, one tagline line, one quiet badge row.
+// Solid colours only — no gradients.
 func Print() {
 	artStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#ff7c00"))
-	version := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#ff9f2f")).Render("v" + config.Version)
-	tag := lipgloss.NewStyle().Foreground(lipgloss.Color("#ffbe00")).Render(tagline)
-	diamond := lipgloss.NewStyle().Foreground(lipgloss.Color("#5a3010")).Render("  ◆  ")
-	copyStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#5a3010")).Render(copyright)
-
-	body := lipgloss.JoinVertical(lipgloss.Center,
-		artStyle.Render(Banner),
-		diamond+version+diamond+tag+diamond,
-		copyStyle,
-	)
-
-	panel := lipgloss.NewStyle().
-		Border(lipgloss.ThickBorder()).
-		BorderForeground(lipgloss.Color("#ff7c00")).
-		Padding(0, 2).
-		Width(lipgloss.Width(body) + 4).
-		Render(body)
+	version := lipgloss.NewStyle().Foreground(lipgloss.Color("#606060")).Render("v" + config.Version)
+	tag := lipgloss.NewStyle().Foreground(lipgloss.Color("#a8b2c0")).Render(tagline)
+	copyStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#606060")).Render(copyright)
 
 	fmt.Println()
-	fmt.Println(panel)
+	fmt.Println(artStyle.Render(Banner))
+	fmt.Println()
+	fmt.Println("  " + version + "  " + tag)
+	fmt.Println("  " + copyStyle)
 
-	// Feature badge strip.
-	var rendered []string
-	for _, b := range badges {
-		rendered = append(rendered, lipgloss.NewStyle().
-			Border(lipgloss.ThickBorder()).
-			BorderForeground(b.colour).
-			Padding(0, 1).
-			Bold(true).
-			Foreground(b.colour).
-			Render(b.label))
-	}
-	fmt.Println(lipgloss.JoinHorizontal(lipgloss.Center, rendered...))
+	// Feature badges: one dim, separated row — no boxes.
+	dim := lipgloss.NewStyle().Foreground(lipgloss.Color("#7c7c7c"))
+	fmt.Println(dim.Render("  " + strings.Join(badges, "  ·  ")))
 	fmt.Println()
 }
 
 // PrintFarewell renders the final build status panel.
+// One bordered line, nothing else — solid colour, no gradient.
 func PrintFarewell(success bool, elapsed float64, zipOutputDir string) {
+	border := lipgloss.RoundedBorder()
 	if success {
-		ok := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#39d353")).Render("  ✦  BUILD COMPLETE  ✦  ")
-		dir := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#ffbe00")).Render(zipOutputDir + "/")
+		ok := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#39d353")).Render("✓ BUILD COMPLETE")
 		info := lipgloss.NewStyle().Foreground(lipgloss.Color("#a8b2c0")).
-			Render(fmt.Sprintf("  Total time  %.1fs   ·   Flashable ZIP ready in ", elapsed))
+			Render(fmt.Sprintf("  %.1fs  ·  flashable ZIP in %s/", elapsed, zipOutputDir))
 		panel := lipgloss.NewStyle().
-			Border(lipgloss.ThickBorder()).
+			Border(border).
 			BorderForeground(lipgloss.Color("#39d353")).
-			Padding(1, 6).
-			Render(strings.Join([]string{ok, info + dir}, "\n\n"))
+			Padding(0, 1).
+			Render(ok + info)
 		fmt.Println()
 		fmt.Println(panel)
 	} else {
-		fail := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#ff4444")).Render("  ✗  BUILD FAILED  ✗  ")
-		info := lipgloss.NewStyle().Foreground(lipgloss.Color("#ff9f2f")).
-			Render(fmt.Sprintf("  Total time  %.1fs   ·   Check the log for errors", elapsed))
+		fail := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#ff4444")).Render("✗ BUILD FAILED")
+		info := lipgloss.NewStyle().Foreground(lipgloss.Color("#a8b2c0")).
+			Render(fmt.Sprintf("  %.1fs  ·  check the log for errors", elapsed))
 		panel := lipgloss.NewStyle().
-			Border(lipgloss.ThickBorder()).
+			Border(border).
 			BorderForeground(lipgloss.Color("#ff4444")).
-			Padding(1, 6).
-			Render(strings.Join([]string{fail, info}, "\n\n"))
+			Padding(0, 1).
+			Render(fail + info)
 		fmt.Println()
 		fmt.Println(panel)
 	}

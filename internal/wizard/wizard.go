@@ -92,7 +92,7 @@ func Run() (*config.BuildConfig, error) {
 		cfg.KernelSourceURL = strings.TrimSpace(sourceURL)
 		cfg.KernelSourceBranch = strings.TrimSpace(sourceBranch)
 		cfg.KernelSource = strings.TrimSpace(sourceDest)
-		fmt.Printf("\n  ✦  Kernel will be cloned from %s into %s on first build.\n\n",
+		fmt.Printf("\n  ✓  Kernel will be cloned from %s into %s on first build.\n\n",
 			cfg.KernelSourceURL, cfg.KernelSource)
 	} else {
 		if err := RunForm(huh.NewForm(
@@ -193,7 +193,7 @@ func Run() (*config.BuildConfig, error) {
 			cfg.ToolchainDir = s
 		}
 		cfg.Toolchain.ExtraPath = []string{}
-		fmt.Printf("  ✦  Toolchain will be stored in %s on first build.\n\n", cfg.ToolchainDir)
+		fmt.Printf("  ✓  Toolchain will be stored in %s on first build.\n\n", cfg.ToolchainDir)
 	} else if s := strings.TrimSpace(extraPath); s != "" {
 		cfg.Toolchain.ExtraPath = []string{s}
 	}
@@ -227,7 +227,7 @@ func Run() (*config.BuildConfig, error) {
 			}); err != nil {
 				fmt.Printf("  ▲  %s\n\n", err)
 			} else {
-				fmt.Println("  ✦  Cross-compilers installed.")
+				fmt.Println("  ✓  Cross-compilers installed.")
 			}
 		}
 	}
@@ -337,7 +337,7 @@ func Run() (*config.BuildConfig, error) {
 			cfg.Ccache.MaxSize = s
 		}
 		cfg.Ccache.Compress = ccacheCompress
-		fmt.Printf("\n  ✦  ccache enabled  max=%s  compress=%s\n\n",
+		fmt.Printf("\n  ✓  ccache enabled  max=%s  compress=%s\n\n",
 			cfg.Ccache.MaxSize, map[bool]string{true: "on", false: "off"}[ccacheCompress])
 	}
 
@@ -487,11 +487,11 @@ func Run() (*config.BuildConfig, error) {
 	}
 	switch akSource {
 	case config.AK3SourceOsm0sis:
-		fmt.Printf("\n  ✦  AnyKernel3 will be cloned from %s on first build.\n\n", ak3.RepoURL)
+		fmt.Printf("\n  ✓  AnyKernel3 will be cloned from %s on first build.\n\n", ak3.RepoURL)
 	case config.AK3SourceGit:
-		fmt.Printf("\n  ✦  AnyKernel3 will be cloned from %s on first build.\n\n", ak3.RepoURL)
+		fmt.Printf("\n  ✓  AnyKernel3 will be cloned from %s on first build.\n\n", ak3.RepoURL)
 	case config.AK3SourceLocal:
-		fmt.Printf("\n  ✦  AnyKernel3 will be copied from %s on first build.\n\n", ak3.RepoURL)
+		fmt.Printf("\n  ✓  AnyKernel3 will be copied from %s on first build.\n\n", ak3.RepoURL)
 	default:
 		fmt.Printf("\n  ▲  Stub ak3-core.sh — ZIPs are dry-run only, not flashable.\n\n")
 	}
@@ -528,7 +528,7 @@ func Run() (*config.BuildConfig, error) {
 		if err := cfg.ToJSON(savePath); err != nil {
 			return nil, err
 		}
-		fmt.Printf("\n  ✦  Configuration saved to %s\n", savePath)
+		fmt.Printf("\n  ✓  Configuration saved to %s\n", savePath)
 		fmt.Printf("     Run: forged build -c %s\n\n", savePath)
 	}
 

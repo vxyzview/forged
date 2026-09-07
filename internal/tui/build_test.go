@@ -23,15 +23,15 @@ func TestColouriseWarningLine(t *testing.T) {
 
 func TestColouriseOKLine(t *testing.T) {
 	out := Colourise("build done")
-	if !strings.Contains(out, "✦") {
-		t.Errorf("ok line must be marked with ✦: %q", out)
+	if !strings.Contains(out, "✓") {
+		t.Errorf("ok line must be marked with ✓: %q", out)
 	}
 }
 
 func TestColourisePlainLine(t *testing.T) {
 	out := Colourise("  CC      init/main.o")
-	if !strings.Contains(out, "◆") {
-		t.Errorf("CC line must be marked with ◆: %q", out)
+	if !strings.Contains(out, "·") {
+		t.Errorf("CC line must be marked with ·: %q", out)
 	}
 }
 
@@ -59,13 +59,13 @@ func TestExtractIssues(t *testing.T) {
 }
 
 func TestPhaseIcon(t *testing.T) {
-	if phaseIcon("mrproper") != "◈" {
+	if phaseIcon("mrproper") != "·" {
 		t.Errorf("mrproper icon = %q", phaseIcon("mrproper"))
 	}
-	if phaseIcon("defconfig") != "◉" {
+	if phaseIcon("defconfig") != "·" {
 		t.Errorf("defconfig icon = %q", phaseIcon("defconfig"))
 	}
-	if phaseIcon("mystery") != "◆" {
+	if phaseIcon("mystery") != "·" {
 		t.Errorf("fallback icon = %q", phaseIcon("mystery"))
 	}
 }
@@ -74,7 +74,7 @@ func TestProgressBar(t *testing.T) {
 	bar := progressBar(2, 4, 20)
 	// lipgloss styles each glyph with ANSI runs, so "width" must be measured
 	// by counting runes inside the visible glyphs, not string length.
-	visible := strings.Count(stripANSI(bar), "━")
+	visible := strings.Count(stripANSI(bar), "─")
 	if visible != 20 {
 		t.Errorf("bar width = %d, want 20: %q", visible, bar)
 	}

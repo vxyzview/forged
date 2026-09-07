@@ -30,7 +30,7 @@ import (
 	"github.com/vxyzview/forged/internal/wizard"
 )
 
-// ── lipgloss styles (forge-fire) ─────────────────────────────────────────────
+// ── lipgloss styles (solid colours, no gradients) ────────────────────────────
 
 var (
 	stylePrimary   = lipgloss.NewStyle().Foreground(lipgloss.Color("#ff7c00"))
@@ -41,14 +41,15 @@ var (
 	styleWarn      = lipgloss.NewStyle().Foreground(lipgloss.Color("#ff9f2f"))
 	styleErr       = lipgloss.NewStyle().Foreground(lipgloss.Color("#ff4444"))
 
-	boxPrimary = lipgloss.NewStyle().Border(lipgloss.ThickBorder()).BorderForeground(lipgloss.Color("#ff7c00")).Padding(1, 2)
-	boxOK      = lipgloss.NewStyle().Border(lipgloss.ThickBorder()).BorderForeground(lipgloss.Color("#39d353")).Padding(0, 2)
-	boxWarn    = lipgloss.NewStyle().Border(lipgloss.ThickBorder()).BorderForeground(lipgloss.Color("#ff9f2f")).Padding(0, 2)
-	boxErr     = lipgloss.NewStyle().Border(lipgloss.ThickBorder()).BorderForeground(lipgloss.Color("#ff4444")).Padding(0, 2)
+	// Flat, thin single-line borders everywhere — quiet, minimalist frames.
+	boxPrimary = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#ff7c00")).Padding(0, 1)
+	boxOK      = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#39d353")).Padding(0, 1)
+	boxWarn    = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#ff9f2f")).Padding(0, 1)
+	boxErr     = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#ff4444")).Padding(0, 1)
 )
 
-func info(msg string)    { fmt.Printf("  %s  %s\n", styleSteel.Render("›"), msg) }
-func okLine(msg string)  { fmt.Printf("  %s  %s\n", styleOK.Render("✦"), msg) }
+func info(msg string)    { fmt.Printf("  %s  %s\n", styleDim.Render("·"), msg) }
+func okLine(msg string)  { fmt.Printf("  %s  %s\n", styleOK.Render("✓"), msg) }
 func warn(msg string)    { fmt.Printf("  %s  %s\n", styleWarn.Render("▲"), styleWarn.Render(msg)) }
 func errLine(msg string) { fmt.Printf("  %s  %s\n", styleErr.Render("✗"), styleErr.Render(msg)) }
 
@@ -82,7 +83,7 @@ func Execute() int {
 		if errors.Is(err, errSilent) {
 			return 1
 		}
-		fmt.Fprintln(os.Stderr, boxErr.Render(styleErr.Bold(true).Render("  ✗  Fatal Error  ")+"\n\n  "+err.Error()))
+		fmt.Fprintln(os.Stderr, boxErr.Render(styleErr.Bold(true).Render("✗ Fatal Error")+"\n\n  "+err.Error()))
 		return 1
 	}
 	return 0
@@ -203,7 +204,7 @@ func runBuild(ctx context.Context, f *buildFlags) error {
 		// /dev/null, so fail loudly with a pointer at the docs.
 		return fmt.Errorf("no config supplied in --ci mode: pass --config <file> or --source/--source-url (see .github/workflows/build-kernel.yml template)")
 	default:
-		fmt.Println(boxWarn.Render(styleWarn.Bold(true).Render("  ▲  No Config  ") + "\n\n  No config supplied — launching interactive wizard."))
+		fmt.Println(boxWarn.Render(styleWarn.Bold(true).Render("▲ No Config") + "\n\n  No config supplied — launching interactive wizard."))
 		w, err := wizard.Run()
 		if err != nil {
 			return err
@@ -351,7 +352,7 @@ func executeBuild(ctx context.Context, cfg *config.BuildConfig, clean, doPackage
 	// ── Toolchain warnings ──
 	warnings := b.ValidateToolchain()
 	for _, w := range warnings {
-		fmt.Println(boxWarn.Render(styleWarn.Bold(true).Render("  ▲  Warning  ") + "\n\n  " + styleWarn.Render(w)))
+		fmt.Println(boxWarn.Render(styleWarn.Bold(true).Render("▲ Warning") + "\n\n  " + styleWarn.Render(w)))
 	}
 	switch {
 	case len(warnings) == 0:
@@ -514,7 +515,7 @@ func finishBuild(cfg *config.BuildConfig, b *builder.KernelBuilder, results []bu
 
 		image := b.FindKernelImage()
 		if image == "" {
-			fmt.Println(boxErr.Render(styleErr.Bold(true).Render("  ✗  Packaging Skipped  ") +
+			fmt.Println(boxErr.Render(styleErr.Bold(true).Render("✗ Packaging Skipped") +
 				"\n\n  Could not locate kernel image — skipping packaging.\n" +
 				"  " + styleDim.Render("Searched: Image.gz-dtb, Image-dtb, Image.gz, Image, zImage-dtb, zImage")))
 		} else {
@@ -551,10 +552,9 @@ func finishBuild(cfg *config.BuildConfig, b *builder.KernelBuilder, results []bu
 			}
 			fmt.Println()
 			fmt.Println(boxOK.Render(
-				styleOK.Bold(true).Render("  ✦  Package Ready  ") + "\n\n" +
-					"  " + styleOK.Render("◎  ZIP Created") + "\n\n" +
+				styleOK.Bold(true).Render("✓ Package Ready") + "\n\n" +
 					"  " + styleSecondary.Render(zp) + "\n" +
-					"  " + styleDim.Render(fmt.Sprintf("%.2f MB  ·  Flash with TWRP or ADB sideload", sizeMB))))
+					"  " + styleDim.Render(fmt.Sprintf("%.2f MB  ·  flash with TWRP or ADB sideload", sizeMB))))
 		}
 	}
 
@@ -709,7 +709,7 @@ func printConfigTable(cfg *config.BuildConfig) {
 			comp = "on"
 		}
 		ccacheStatus = fmt.Sprintf("%s  max %s  ·  compress %s",
-			styleOK.Render("⚡ enabled"), cfg.Ccache.MaxSize, comp)
+			styleOK.Render("✓ enabled"), cfg.Ccache.MaxSize, comp)
 		dir := cfg.Ccache.Dir
 		if dir == "" {
 			dir = styleDim.Render("default  (~/.cache/ccache)")
@@ -758,13 +758,11 @@ func printConfigTable(cfg *config.BuildConfig) {
 	}
 
 	var sb strings.Builder
-	title := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#ffffff")).
-		Background(lipgloss.Color("#ff7c00")).Padding(0, 1).
-		Render("  ◆  BUILD CONFIGURATION  ◆  ")
+	title := stylePrimary.Bold(true).Render("BUILD CONFIGURATION")
 	sb.WriteString(title + "\n")
 	sb.WriteString(strings.Repeat("─", 60) + "\n")
 	for _, r := range rows {
-		sb.WriteString(fmt.Sprintf("  %-16s  %s\n", styleSteel.Render(r.k), r.v))
+		sb.WriteString(fmt.Sprintf("  %-16s  %s\n", styleDim.Render(r.k), r.v))
 	}
 	if ccacheDirRow != "" {
 		sb.WriteString(ccacheDirRow + "\n")
@@ -777,13 +775,13 @@ func printChecklist(hasSource, hasToolchain, hasCcache, ccacheEnabled, clean, do
 		var mark, lbl string
 		switch {
 		case active:
-			mark = styleOK.Bold(true).Render("  ✦")
+			mark = styleOK.Render("  ✓")
 			lbl = lipgloss.NewStyle().Bold(true).Render(label)
 		case isWarn:
-			mark = styleWarn.Bold(true).Render("  ▲")
+			mark = styleWarn.Render("  ▲")
 			lbl = styleWarn.Render(label)
 		default:
-			mark = styleDim.Render("  ○")
+			mark = styleDim.Render("  ·")
 			lbl = styleDim.Render(label)
 		}
 		suffix := ""
@@ -816,9 +814,7 @@ func printChecklist(hasSource, hasToolchain, hasCcache, ccacheEnabled, clean, do
 		item("AnyKernel3 package", doPackage, map[bool]string{true: "produces flashable ZIP", false: "skipped  (--no-package)"}[doPackage], false),
 	}
 
-	title := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#ffffff")).
-		Background(lipgloss.Color("#ff7c00")).Padding(0, 1).
-		Render("  ◆  PRE-BUILD CHECKLIST  ◆  ")
+	title := stylePrimary.Bold(true).Render("PRE-BUILD CHECKLIST")
 	fmt.Println(boxPrimary.Render(title + "\n\n" + strings.Join(lines, "\n")))
 }
 
@@ -893,7 +889,7 @@ func newSetupToolchainCmd() *cobra.Command {
 }
 
 func runSetupToolchain(ctx context.Context, preset, version, toolchainDir string, installCross bool) error {
-	fmt.Println(stylePrimary.Render("  ━━━  ⚙  TOOLCHAIN SETUP  ⚙  ━━━  "))
+	fmt.Println(stylePrimary.Bold(true).Render("TOOLCHAIN SETUP"))
 	fmt.Println()
 
 	cfg := config.New()
@@ -916,7 +912,7 @@ func runSetupToolchain(ctx context.Context, preset, version, toolchainDir string
 
 	cb := func(line string) { info(line) }
 	if _, err := toolchain.AutoSetupToolchain(ctx, cfg, base, installCross, cb); err != nil {
-		fmt.Println(boxErr.Render(styleErr.Bold(true).Render("  ✗  Setup Failed  ") + "\n\n  " + styleErr.Render(err.Error())))
+		fmt.Println(boxErr.Render(styleErr.Bold(true).Render("✗ Setup Failed") + "\n\n  " + styleErr.Render(err.Error())))
 		return err
 	}
 
@@ -937,7 +933,7 @@ func runSetupToolchain(ctx context.Context, preset, version, toolchainDir string
 	}
 
 	fmt.Println()
-	fmt.Println(stylePrimary.Render("  ━━━  ⬡  CROSS-COMPILER STATUS  ⬡  ━━━  "))
+	fmt.Println(stylePrimary.Bold(true).Render("CROSS-COMPILER STATUS"))
 	gccMap := toolchain.CheckGnuCrossCompilers(cb)
 	for _, a := range toolchain.GnuPackageOrder {
 		if gccMap[a] != "" {
@@ -952,7 +948,7 @@ func runSetupToolchain(ctx context.Context, preset, version, toolchainDir string
 	}
 
 	fmt.Println()
-	fmt.Println(boxOK.Render(styleOK.Bold(true).Render("  ✦  Setup Complete  ") +
+	fmt.Println(boxOK.Render(styleOK.Bold(true).Render("✓ Setup Complete") +
 		"\n\n  Run " + lipgloss.NewStyle().Bold(true).Render("forged build --wizard") + " to start a build."))
 	fmt.Println()
 	return nil
@@ -979,11 +975,11 @@ func newCcacheStatsCmd() *cobra.Command {
 }
 
 func runCcacheStats(dir string, zero, verbose bool) error {
-	fmt.Println(stylePrimary.Render("  ━━━  ◉  CCACHE STATISTICS  ◉  ━━━  "))
+	fmt.Println(stylePrimary.Bold(true).Render("CCACHE STATISTICS"))
 	fmt.Println()
 
 	if toolchain.Which("ccache") == "" {
-		fmt.Println(boxErr.Render(styleErr.Bold(true).Render("  ✗  ccache Not Found  ") +
+		fmt.Println(boxErr.Render(styleErr.Bold(true).Render("✗ ccache Not Found") +
 			"\n\n  ccache is not installed.\n  Install via:  " +
 			lipgloss.NewStyle().Bold(true).Render("sudo apt install ccache")))
 		return fmt.Errorf("ccache is not installed")
@@ -1002,7 +998,7 @@ func runCcacheStats(dir string, zero, verbose bool) error {
 
 	out, code := runCapture(show, env)
 	fmt.Println(boxPrimary.Render(
-		styleSecondary.Bold(true).Render("  ◉  ccache Statistics  ") + "\n\n" + strings.TrimRight(out, "\n")))
+		styleSecondary.Bold(true).Render("ccache Statistics") + "\n\n" + strings.TrimRight(out, "\n")))
 	if code != 0 {
 		warn(fmt.Sprintf("ccache exited with code %d", code))
 	}
