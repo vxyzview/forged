@@ -168,6 +168,8 @@ func Run() (*config.BuildConfig, error) {
 	if preset == "aosp-clang" {
 		if s := strings.TrimSpace(clangVersion); s != "" {
 			cfg.Toolchain.AOSPClangVersion = s
+		} else {
+			cfg.Toolchain.AOSPClangVersion = toolchain.DefaultAOSPClangVersion
 		}
 		fmt.Printf("\n  ›  Will download clang-%s.tar.gz from AOSP googlesource.\n", cfg.Toolchain.AOSPClangVersion)
 		// AOSP only publishes kernel-build Clang prebuilts as linux-x86

@@ -72,6 +72,8 @@ One static binary. No interpreter, no runtime, no GCC.
 - **LTO aware** — `thin` / `full`, transparent alongside ccache ≥ 4.0.
 - **Issues log** — every build writes an errors + warnings digest under `out/logs/`, so you never scroll the TUI for that one warning again.
 
+Once the [demo workflow](.github/workflows/demo.yml) renders, a GIF walkthrough lives here too — see [`docs/demo.tape`](docs/demo.tape).
+
 ---
 
 ## Install

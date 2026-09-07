@@ -32,6 +32,10 @@ import (
 // platform should use the system-clang preset instead.
 const AOSPClangTarballBase = "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main-kernel"
 
+// DefaultAOSPClangVersion is the AOSP Clang revision used when
+// aosp_clang_version is left empty (and the wizard's default).
+const DefaultAOSPClangVersion = "r584948b"
+
 // aospClangSupportedFn indirection lets tests force AOSP availability
 // regardless of the host platform.
 var aospClangSupportedFn = AOSPClangSupported
@@ -361,6 +365,13 @@ func DownloadAOSPClang(ctx context.Context, destBase, preset, version string, pr
 func downloadAOSPClangImpl(ctx context.Context, destBase, preset, version string, progress Progress) (string, error) {
 	if progress == nil {
 		progress = nopProgress
+	}
+	if version == "" {
+		// Empty aosp_clang_version (the zero value when a config sets only
+		// the preset, or when a tool env drops the version flag) must not
+		// produce a bogus "clang-.tar.gz" URL — fall back to the default
+		// revision the same way the wizard does.
+		version = DefaultAOSPClangVersion
 	}
 	revisionDir := "clang-" + version
 	url := fmt.Sprintf("%s/%s.tar.gz", AOSPClangTarballBase, revisionDir)

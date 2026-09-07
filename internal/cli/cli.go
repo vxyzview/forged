@@ -886,7 +886,11 @@ func runSetupToolchain(ctx context.Context, preset, version, toolchainDir string
 	}
 	cfg.Toolchain.AutoClone = true
 	cfg.AutoSetupToolchain = true
-	cfg.Toolchain.AOSPClangVersion = version
+	if version != "" {
+		cfg.Toolchain.AOSPClangVersion = version
+	} else {
+		cfg.Toolchain.AOSPClangVersion = toolchain.DefaultAOSPClangVersion
+	}
 
 	var base string
 	if toolchainDir != "" {
