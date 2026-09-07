@@ -19,6 +19,11 @@ out/
 # Packaged flashable ZIPs
 releases/
 
+# Fixture build artefacts (CI smoke-test kernel tree)
+test/fixtures/kernel-fixture/out/
+test/fixtures/kernel-fixture/releases/
+test/fixtures/kernel-fixture/AnyKernel3/
+
 # Toolchains managed by forged setup-toolchain
 # (stored in ~/.local/share/forged/ by default, but may be local)
 toolchains/

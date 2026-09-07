@@ -515,6 +515,12 @@ func writeZip(f *os.File, base string) error {
 		if err != nil {
 			return err
 		}
+		// Skip VCS metadata — cloned AnyKernel3 checkouts carry a .git
+		// directory that has no business inside a flashable ZIP (it can
+		// double the archive size and confuses recoveries).
+		if info.IsDir() && info.Name() == ".git" && p != base {
+			return filepath.SkipDir
+		}
 		if !info.IsDir() {
 			files = append(files, p)
 		}

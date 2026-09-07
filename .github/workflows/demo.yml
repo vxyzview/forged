@@ -1,0 +1,65 @@
+name: Demo GIF
+
+# Renders docs/demo.gif from docs/demo.tape with charmbracelet/vhs and
+# commits it back to the default branch (if changed).
+#
+# Requires repo setting: Actions → General → Workflow permissions →
+# "Read and write permissions".
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - docs/demo.tape
+      - test/fixtures/kernel-fixture/**
+      - internal/**
+      - .github/workflows/demo.yml
+
+permissions:
+  contents: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # vhs commits the GIF back — needs history + a pushable token
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.27"
+          cache: true
+
+      - name: Build forged
+        run: go build -trimpath -ldflags "-s -w" -o /usr/local/bin/forged ./cmd/forged
+
+      - name: Install ttyd + ffmpeg (vhs runtime deps)
+        run: |
+          # apt's ffmpeg is fine; ttyd comes from the vhs-recommended binary
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          curl -fsSL https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 \
+            -o ttyd && chmod +x ttyd && sudo mv ttyd /usr/local/bin/
+          git config user.name  "forged-demo-bot"
+          git config user.email "actions@users.noreply.github.com"
+
+      - name: Install vhs
+        run: go install github.com/charmbracelet/vhs@latest
+
+      - name: Render demo GIF
+        run: vhs docs/demo.tape
+
+      - name: Commit rendered GIF (if changed)
+        run: |
+          if git diff --quiet docs/demo.gif; then
+            echo "GIF unchanged — nothing to commit"
+          else
+            git add docs/demo.gif
+            git commit -m "docs: refresh demo GIF [skip ci]"
+            git push
+          fi

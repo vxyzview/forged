@@ -1,0 +1,7 @@
+# Demo GIF (docs/demo.gif) is rendered by the vhs workflow and by hand via
+# `vhs docs/demo.tape`. Keep the artifact out of git.
+docs/demo.gif
+
+# e2e fixture build artifacts (belt and braces — .gitignore covers the
+# generic names, this pins the fixture path explicitly)
+test/fixtures/kernel-fixture/**/*.zip

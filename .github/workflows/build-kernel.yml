@@ -36,7 +36,7 @@ env:
   AOSP_CLANG_VERSION: r584948b # forged default; pin yours here
   CCACHE_SIZE: 5G
   # Which forged release to install. Use a tag for reproducible builds.
-  FORGED_VERSION: v1.0.4
+  FORGED_VERSION: v1.0.5
   # ───────────────────────────────────────────────────────────────
 
 jobs:

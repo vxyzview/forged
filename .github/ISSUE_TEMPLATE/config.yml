@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or discussion
+    url: https://github.com/vxyzview/forged/discussions
+    about: Ask how to build a specific kernel, CI setup help, or share your setup
+  - name: Kernel build troubleshooting (docs)
+    url: https://github.com/vxyzview/forged/blob/main/docs/toolchains.md
+    about: Toolchain presets, cross-compiler notes, and common build errors

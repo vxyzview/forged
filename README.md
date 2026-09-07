@@ -15,8 +15,7 @@
 
 [![CI](https://github.com/vxyzview/forged/actions/workflows/ci.yml/badge.svg?style=flat-square)](https://github.com/vxyzview/forged/actions/workflows/ci.yml)
 [![Code Quality](https://img.shields.io/badge/code%20quality-A-3FB950?style=flat-square)](https://github.com/vxyzview/forged/actions/workflows/release.yml)
-[![Go](https://img.shields.io/badge/Go-1.27-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev)
-[![LLVM / Clang](https://img.shields.io/badge/Toolchain-LLVM%20%2F%20Clang-39D353?style=flat-square&logo=llvm&logoColor=white)](https://llvm.org)
+[![Go](https://img.shields.io/badge/Go-1.27-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev)[![LLVM / Clang](https://img.shields.io/badge/Toolchain-LLVM%20%2F%20Clang-39D353?style=flat-square&logo=llvm&logoColor=white)](https://llvm.org)
 [![Bubble Tea](https://img.shields.io/badge/TUI-Bubble%20Tea-FF69B4?style=flat-square)](https://github.com/charmbracelet/bubbletea)
 [![Cobra](https://img.shields.io/badge/CLI-Cobra-1E4174?style=flat-square)](https://github.com/spf13/cobra)
 [![AnyKernel3](https://img.shields.io/badge/Packaging-AnyKernel3-C0CA33?style=flat-square)](https://github.com/osm0sis/AnyKernel3)
@@ -91,17 +90,21 @@ SHA-256 checksum, and installs to `/usr/local/bin` (or `~/.local/bin`).
 | **Windows** | x86_64 · arm64 | [**WSL2**](docs/windows-macos.md) for builds · config / SSH workflows natively |
 | **macOS** | Apple Silicon · Intel | [**Docker**](docs/windows-macos.md) for builds · config / SSH workflows natively |
 
-Pin a version with `FORGED_VERSION=v1.0.4`.
+Pin a version with `FORGED_VERSION=v1.0.5` or
+`curl … | bash -s -- --version v1.0.5`.
 
 Windows users: run the installer **inside WSL2** (Ubuntu) — running it in Git
 Bash / MSYS prints the WSL2 setup steps instead. See
 [`docs/windows-macos.md`](docs/windows-macos.md).
 
-Or with Go:
+Or with Go (requires Go 1.27+):
 
 ```bash
 go install github.com/vxyzview/forged/cmd/forged@latest
 ```
+
+Shell completions: `forged completion bash | sudo tee /etc/bash_completion.d/forged`
+(also available for `zsh`, `fish`, `powershell`).
 
 Or with Docker — a ready Ubuntu image with Clang/LLVM, kbuild tools, cross-compilers, ccache and aria2 preinstalled:
 
@@ -188,7 +191,7 @@ forged build --source-url https://github.com/you/kernel.git \
 | `--toolchain-dir DIR` | Storage path (default `~/.local/share/forged/toolchains`) |
 | `--install-cross-compilers` | Auto-install GNU cross-compilers |
 
-**`forged config`** — wizard, saves a config · **`forged info`** — print a config summary · **`forged ccache-stats`** — cache statistics, `--zero` to reset · **`forged doctor`** — verify the build environment (git, make, clang, LLVM binutils, cross-compilers, ccache, aria2, disk space) with fix hints for everything missing
+**`forged config`** — wizard, saves a config · **`forged info`** — print a config summary · **`forged ccache-stats`** — cache statistics, `--zero` to reset · **`forged doctor`** — verify the build environment (git, make, clang, LLVM binutils, cross-compilers, ccache, aria2, disk space) with fix hints for everything missing · **`forged completion bash|zsh|fish|powershell`** — shell completion scripts
 
 ---
 

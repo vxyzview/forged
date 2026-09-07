@@ -20,3 +20,11 @@ updates:
       interval: weekly
     commit-message:
       prefix: ci
+
+  # Dockerfile base images (golang:1.27, ubuntu:24.04)
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: deps

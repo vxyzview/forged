@@ -37,11 +37,64 @@ jobs:
       - name: go test
         run: go test -count=1 ./...
 
+      - name: govulncheck
+        uses: golang/govulncheck-action@v1
+        with:
+          go-version-input: "1.27"
+          go-package: ./...
+
       - name: Build smoke test
         run: |
           go build -trimpath -ldflags "-s -w -X github.com/vxyzview/forged/internal/config.Version=ci" -o forged ./cmd/forged
           ./forged --version
           ./forged doctor || true
+
+  e2e:
+    name: E2E build (kernel fixture)
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.27"
+          cache: true
+
+      - name: Build forged
+        run: go build -trimpath -ldflags "-s -w -X github.com/vxyzview/forged/internal/config.Version=e2e" -o forged ./cmd/forged
+
+      # The runner's system clang is enough: --toolchain-extra-path points
+      # forged at it, so no AOSP Clang download is needed for this job.
+      - name: E2E — build the fixture kernel tree with --ci
+        run: |
+          ./forged build --ci \
+            --source test/fixtures/kernel-fixture \
+            --defconfig ci_defconfig \
+            --toolchain-extra-path /usr/bin \
+            --version-tag e2e-${GITHUB_SHA::8}
+
+      - name: E2E — verify machine-readable outputs
+        run: |
+          test -n "$(ls test/fixtures/kernel-fixture/releases/*.zip)" || { echo "no ZIP produced"; exit 1; }
+          grep -q "outcome=success" "$GITHUB_OUTPUT"
+          grep -q "zip_path=" "$GITHUB_OUTPUT"
+
+      - name: E2E — verify ZIP contents (no VCS metadata, has payload)
+        run: |
+          ZIP=$(ls test/fixtures/kernel-fixture/releases/*.zip | head -1)
+          ! unzip -l "$ZIP" | grep -q "\.git/"
+          unzip -l "$ZIP" | grep -q "anykernel.sh"
+          unzip -l "$ZIP" | grep -q "META-INF/com/google/android/update-binary"
+
+      - name: Upload fixture ZIP artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: fixture-kernel-zip
+          path: test/fixtures/kernel-fixture/releases/*.zip
+          retention-days: 7
 
   docker:
     name: Docker image
@@ -65,3 +118,11 @@ jobs:
         run: |
           docker run --rm forged:ci --version
           docker run --rm forged:ci doctor || true
+          # E2E inside the container: the image ships clang, make and the
+          # cross-compilers, so the fixture kernel must build clean.
+          docker run --rm \
+            -v "$PWD/test/fixtures/kernel-fixture:/work/fixture" \
+            forged:ci build --ci \
+              --source /work/fixture \
+              --defconfig ci_defconfig \
+              --version-tag docker-e2e
