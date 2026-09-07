@@ -531,9 +531,10 @@ func finishBuild(cfg *config.BuildConfig, b *builder.KernelBuilder, results []bu
 				return fmt.Errorf("zip creation failed: %w", err)
 			}
 			zipPath = zp
-			// The ZIP lives relative to the kernel source root (its git-ignored
-			// output area), but CI consumers and the farewell banner speak in
-			// absolute paths — resolve before reporting/writing outputs.
+			// The ZIP lives relative to the kernel source root (its
+			// git-ignored output area), but CI consumers and the farewell
+			// banner speak in workspace-relative paths — resolve before
+			// reporting/writing outputs.
 			if abs, err := filepath.Abs(zp); err == nil {
 				zipPath = abs
 			}

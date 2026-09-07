@@ -75,16 +75,19 @@ jobs:
             --defconfig ci_defconfig \
             --toolchain-extra-path /usr/bin \
             --version-tag e2e-${GITHUB_SHA::8}
+        env:
+          # Persist machine-readable outputs for the verify step
+          GITHUB_OUTPUT: ${{ github.workspace }}/.forged-e2e-outputs.txt
 
       - name: E2E — verify machine-readable outputs
         run: |
-          test -n "$(ls test/fixtures/kernel-fixture/releases/*.zip)" || { echo "no ZIP produced"; exit 1; }
-          grep -q "outcome=success" "$GITHUB_OUTPUT"
-          grep -q "zip_path=" "$GITHUB_OUTPUT"
-          # zip_path must point at the real artifact (absolute, inside the fixture)
-          ZP=$(sed -n 's/^zip_path=//p' "$GITHUB_OUTPUT")
-          test -f "$ZP"
+          OUT=.forged-e2e-outputs.txt
+          grep -q "outcome=success" "$OUT"
+          # zip_path is absolute and points at the real flashable ZIP
+          ZP=$(sed -n 's/^zip_path=//p' "$OUT")
+          test -f "$ZP" || { echo "zip_path does not exist: $ZP"; exit 1; }
           unzip -l "$ZP" | grep -q anykernel.sh
+          echo "FORGED_ZIP=$ZP" >> "$GITHUB_ENV"
 
       - name: E2E — verify ZIP contents (no VCS metadata, has payload)
         run: |
@@ -94,10 +97,12 @@ jobs:
           unzip -l "$ZIP" | grep -q "META-INF/com/google/android/update-binary"
 
       - name: Upload fixture ZIP artifact
+        if: env.FORGED_ZIP != ''
         uses: actions/upload-artifact@v7
         with:
           name: fixture-kernel-zip
-          path: test/fixtures/kernel-fixture/releases/*.zip
+          # Absolute path handed over by the verify step
+          path: ${{ env.FORGED_ZIP }}
           retention-days: 7
 
   docker:

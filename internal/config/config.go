@@ -289,6 +289,12 @@ func (c *BuildConfig) Validate() error {
 	if c.KernelSourceDepth < 0 {
 		return fmt.Errorf("invalid kernel_source_depth %d. Must be 0 (full history) or a positive integer (shallow clone depth)", c.KernelSourceDepth)
 	}
+	// zip_output_dir is resolved against the kernel source root, so an
+	// absolute path is a silent footgun — the ZIP would land somewhere the
+	// user isn't looking (and CI artifact steps would miss it).
+	if filepath.IsAbs(c.ZipOutputDir) {
+		return fmt.Errorf("invalid zip_output_dir %q: must be a relative path (resolved against the kernel source root)", c.ZipOutputDir)
+	}
 	switch c.Anykernel3.DoModules {
 	case DoModulesAuto, DoModulesOff, DoModulesOn:
 		// valid: -1 (auto), 0 (never), 1 (always)

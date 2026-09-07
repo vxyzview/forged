@@ -281,7 +281,9 @@ More in [`docs/toolchains.md`](docs/toolchains.md).
 ## FAQ
 
 **Where do the ZIPs land?**
-`releases/<kernel_name>-<timestamp>[-<version_tag>].zip`, next to your kernel tree.
+`<kernel tree>/releases/<kernel_name>-<timestamp>[-<version_tag>].zip` —
+`zip_output_dir` is resolved against the kernel source root, so the ZIP
+always sits next to the tree it was built from.
 
 **How do I skip the clean build?**
 `--no-clean`. Keep ccache on and rebuilds are minutes, not hours.
