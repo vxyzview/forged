@@ -1,7 +1,7 @@
 # ── Go ────────────────────────────────────────────────────────────────────────
-# Compiled binary produced by `go build` / `go install`
+# Compiled binary produced by `go build` / `go install` (repo root only)
 /forged
-forged
+/forged.exe
 *.exe
 *.test
 *.out
