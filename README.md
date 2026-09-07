@@ -25,7 +25,7 @@
 [![Platforms](https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-lightgrey?style=flat-square)](#install)
 [![License: MIT](https://img.shields.io/badge/license-MIT-FF7C00?style=flat-square)](LICENSE)
 
-[Install](#install) · [Quick start](#quick-start) · [CLI](#cli) · [Config](#config) · [Toolchains](#toolchains) · [Windows / macOS](docs/windows-macos.md) · [FAQ](#faq)
+[Install](#install) · [Quick start](#quick-start) · [CLI](#cli) · [Config](#config) · [Toolchains](#toolchains) · [CI/CD](docs/ci-cd.md) · [Windows / macOS](docs/windows-macos.md) · [FAQ](#faq)
 
 </div>
 
@@ -163,10 +163,21 @@ forged build --source-url https://github.com/you/kernel.git \
 | `-F, --make-flag VAR=VALUE` | Append a make variable (repeatable) |
 | `-E, --env KEY=VALUE` | Inject an env var (repeatable) |
 | `--ccache` / `--no-ccache` | Toggle ccache |
-| `--ci` | CI mode: no prompts, results → `GITHUB_OUTPUT` / `GITHUB_STEP_SUMMARY` (auto-on in GitHub Actions) |
+| `--ci` | CI mode: no prompts, collapsible log groups, error annotations, outputs + report (auto-on in any detected CI) |
 | `--toolchain-dir DIR` | Where auto-downloaded toolchains live (cache-friendly) |
 | `--toolchain-extra-path DIR` | Pre-provisioned clang location, skips auto-download (repeatable) |
 | `--arch ARCH` | `arm64` (default) / `arm` / `x86_64` |
+
+**Every CI/CD system, one flag.** `--ci` (or just being inside CI — forged detects it) means no interactive prompts, git clones that fail fast instead of hanging, and a machine-readable build report:
+
+| Environment | What forged emits |
+|---|---|
+| GitHub Actions | `::group::` collapsible steps, `::error`/`::warning` annotations, `zip_path`/`outcome` outputs, Markdown job summary |
+| GitLab CI | `section_start`/`section_end` collapsible sections, report in job log |
+| Azure Pipelines | `##[group]` sections, `##vso[task.logissue]` errors/warnings |
+| TeamCity | `blockOpened`/`blockClosed`, escaped service messages |
+| Buildkite | `---` fold sections |
+| Jenkins, CircleCI, Travis, Drone, Bitbucket, AppVeyor, Woodpecker, Cirrus, anything with `CI=true` | plain step banners (no vendor lock-in), report in log, `FORGED_CI=1` to force |
 
 **`forged setup-toolchain`**
 
@@ -285,6 +296,9 @@ Yes — natively for configs, source management and SSH workflows; for actual bu
 **Can I build my kernel on GitHub Actions?**
 Yes — copy [`.github/workflows/build-kernel.yml`](.github/workflows/build-kernel.yml) into your kernel repo. It installs forged, caches AOSP Clang + ccache, runs `forged build --ci` and uploads the flashable ZIP as an artifact (and publishes a release on tags). The `--ci` flag disables all prompts and writes `zip_path` / `outcome` outputs plus a Markdown build report to the run summary.
 
+**Other CI systems?**
+The same `--ci` flag works everywhere — forged auto-detects GitLab CI, Azure Pipelines, Jenkins, CircleCI, Travis, Drone, Bitbucket Pipelines, AppVeyor, Buildkite, TeamCity, Woodpecker, Cirrus and generic `CI=true` environments, emitting each provider's native log groups and error annotations where supported. Set `FORGED_CI=1` to force it anywhere (cron, self-hosted scripts), `FORGED_CI_NO_PROMPT=1` to make git clones fail fast instead of prompting. Pipeline snippets for GitLab, Jenkins, Azure and CircleCI: [`docs/ci-cd.md`](docs/ci-cd.md).
+
 ---
 
 ## Project layout
@@ -295,14 +309,15 @@ forged/
 ├── internal/
 │   ├── banner/            # forge-fire ASCII art
 │   ├── builder/           # make orchestration, env injection, step runner
-│   ├── cli/               # cobra commands, build runner, issues log
+│   ├── cienv/             # CI/CD provider detection + log dialects
+│   ├── cli/               # cobra commands, build runner, CI plumbing
 │   ├── config/            # BuildConfig, presets, JSON/TOML I/O
 │   ├── packager/          # AnyKernel3 staging + ZIP creation
 │   ├── toolchain/         # AOSP Clang download, git clone, cross-compilers
 │   ├── tui/               # Bubble Tea live build monitor
 │   └── wizard/            # huh-based interactive config wizard
 ├── config/                # annotated example configs (TOML + JSON)
-├── docs/                  # toolchain + platform guides (WSL2, Docker)
+├── docs/                  # toolchain, CI/CD + platform guides
 ├── Dockerfile             # ready-to-build Ubuntu image (Clang/LLVM + tools)
 └── AnyKernel3/            # staging area (populated per-build)
 ```

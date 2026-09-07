@@ -19,6 +19,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/vxyzview/forged/internal/cienv"
 	"github.com/vxyzview/forged/internal/config"
 )
 
@@ -60,25 +61,6 @@ func nopProgress(string) {}
 // runFn allows tests to intercept subprocess execution.
 var runFn = runImpl
 
-// inCIEnv reports whether the process appears to run inside a CI system
-// (GitHub Actions sets GITHUB_ACTIONS=true; other CIs set CI=true).
-func inCIEnv() bool {
-	if os.Getenv("GITHUB_ACTIONS") == "true" {
-		return true
-	}
-	if v := os.Getenv("CI"); v == "true" || v == "1" {
-		return true
-	}
-	return false
-}
-
-// ciNoPrompt reports whether FORGED_CI_NO_PROMPT is set — an escape hatch
-// for scripted (non-CI) environments where a git credential prompt would
-// block forever. Set it to "0" to re-enable prompts.
-func ciNoPrompt() bool {
-	return os.Getenv("FORGED_CI_NO_PROMPT") == "1"
-}
-
 // Run executes a command, streaming stdout+stderr lines to progress.
 func Run(cmd []string, dir string, progress Progress) error {
 	return runFn(cmd, dir, progress)
@@ -95,7 +77,7 @@ func runImpl(cmd []string, dir string, progress Progress) error {
 	}
 	// Never let git block on credential prompts in CI (stdin is /dev/null):
 	// fail fast with a visible error instead of hanging a build for hours.
-	if cmd[0] == "git" && (inCIEnv() || ciNoPrompt()) {
+	if cmd[0] == "git" && (cienv.Detected() || cienv.NoPrompt()) {
 		c.Env = append(os.Environ(),
 			"GIT_TERMINAL_PROMPT=0",
 			"GIT_ASKPASS=/bin/echo",

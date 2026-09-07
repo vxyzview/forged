@@ -22,6 +22,7 @@ import (
 
 	"github.com/vxyzview/forged/internal/banner"
 	"github.com/vxyzview/forged/internal/builder"
+	"github.com/vxyzview/forged/internal/cienv"
 	"github.com/vxyzview/forged/internal/config"
 	"github.com/vxyzview/forged/internal/packager"
 	"github.com/vxyzview/forged/internal/toolchain"
@@ -178,7 +179,7 @@ func sourceDepthWasSet() bool {
 func runBuild(ctx context.Context, f *buildFlags) error {
 	var cfg *config.BuildConfig
 
-	ciMode := f.ci || inGitHubActions()
+	ciMode := f.ci || cienv.Detected() || cienv.Forced()
 
 	switch {
 	case f.configPath != "":
@@ -430,14 +431,12 @@ func runNoTTY(ctx context.Context, b *builder.KernelBuilder, steps []builder.Bui
 	)
 
 	for i, step := range steps {
-		fmt.Printf("\n  %s  %s  %s  (%d/%d)\n",
-			stylePrimary.Render("◆"),
-			styleSecondary.Bold(true).Render(strings.ToUpper(step.Name)),
-			styleDim.Render("step"), i+1, len(steps))
+		group := startLogGroup(fmt.Sprintf("forged-step-%d-%s", i+1, step.Name), step.Name)
 		result := b.RunStep(ctx, step, func(line string) {
 			allLines = append(allLines, line)
 			fmt.Println(tui.Colourise(line))
 		})
+		group.close()
 		if result.Success {
 			okLine(fmt.Sprintf("%s  PASSED  (%.2fs)", styleSecondary.Render(result.Step), result.Duration))
 		} else {
@@ -495,7 +494,7 @@ func finishBuild(cfg *config.BuildConfig, b *builder.KernelBuilder, results []bu
 		if ci.enabled {
 			c := newCIOutputs()
 			c.setOutput("outcome", "failure")
-			runCIAnnotations(results, nil)
+			runCIAnnotations(c.provider, results, nil)
 			c.appendSummary(ciSummaryMarkdown(ci.configName, results, "", time.Since(buildStart)))
 		}
 		return fmt.Errorf("build failed")
@@ -561,7 +560,7 @@ func finishBuild(cfg *config.BuildConfig, b *builder.KernelBuilder, results []bu
 		var digest []string
 		digest = append(digest, issues.Errors...)
 		digest = append(digest, issues.Warnings...)
-		runCIAnnotations(results, digest)
+		runCIAnnotations(c.provider, results, digest)
 		c.appendSummary(ciSummaryMarkdown(ci.configName, results, zipPath, elapsed))
 	}
 	banner.PrintFarewell(true, elapsed.Seconds(), cfg.ZipOutputDir)

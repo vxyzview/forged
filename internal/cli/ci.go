@@ -1,10 +1,13 @@
-// ci.go implements forged's GitHub Actions integration: GITHUB_OUTPUT /
-// GITHUB_STEP_SUMMARY plumbing and a machine-friendly --ci flag.
+// ci.go implements forged's CI/CD integration layer: provider-aware log
+// groups, error/warning service messages, machine-readable outputs and a
+// Markdown build report — covering GitHub Actions, GitLab CI, Azure
+// Pipelines, TeamCity, Buildkite, Jenkins, CircleCI and generic CI=true
+// systems via the internal/cienv detection package.
 //
 // In CI, forged must never block on stdin (toolchain prompts), must keep
 // streaming plain logs instead of the TUI (already the case when no TTY is
-// present), and should surface the ZIP path + step results as outputs so a
-// workflow can attach the ZIP as a build artifact or publish a release.
+// present), and should surface the ZIP path + step results so a pipeline
+// can attach the ZIP as an artifact or publish a release.
 //
 // FORGED — Android Kernel Builder
 // Copyright (c) 2026 vxyzview. Made with love.
@@ -18,32 +21,32 @@ import (
 	"time"
 
 	"github.com/vxyzview/forged/internal/builder"
+	"github.com/vxyzview/forged/internal/cienv"
 )
 
-// inGitHubActions reports whether the process runs inside a GitHub Actions
-// runner (GITHUB_ACTIONS=true is documented by the runner spec).
-func inGitHubActions() bool {
-	return os.Getenv("GITHUB_ACTIONS") == "true"
-}
-
-// ciOutputs wraps GitHub Actions output files. When the env vars are unset
-// (not on a runner) every method degrades to a no-op so the flag can be
-// safely used anywhere.
+// ciOutputs carries per-provider output sinks discovered from the env:
+// GitHub's $GITHUB_OUTPUT / $GITHUB_STEP_SUMMARY files when present, the
+// provider identity for service messages, and TeamCity's job-report dir.
+// When nothing is set (not on a runner) every method degrades to a no-op so
+// the --ci flag can be safely used anywhere.
 type ciOutputs struct {
+	provider    cienv.Provider
 	outputPath  string
 	summaryPath string
 }
 
-// newCIOutputs reads GITHUB_OUTPUT / GITHUB_STEP_SUMMARY from the env.
+// newCIOutputs probes the environment for the current CI system.
 func newCIOutputs() *ciOutputs {
 	return &ciOutputs{
+		provider:    cienv.Detect(),
 		outputPath:  os.Getenv("GITHUB_OUTPUT"),
 		summaryPath: os.Getenv("GITHUB_STEP_SUMMARY"),
 	}
 }
 
-// setOutput writes a single workflow output (key=value), appending to
-// GITHUB_OUTPUT with the runner's heredoc-compatible format.
+// setOutput appends key=value to $GITHUB_OUTPUT in the runner's
+// heredoc-compatible format. Other providers have no equivalent file, so
+// they simply skip it (the Markdown summary is their report).
 func (c *ciOutputs) setOutput(key, value string) {
 	if c.outputPath == "" || key == "" {
 		return
@@ -61,27 +64,62 @@ func (c *ciOutputs) setOutput(key, value string) {
 	}
 }
 
-// appendSummary appends a Markdown section to GITHUB_STEP_SUMMARY.
+// appendSummary appends a Markdown section to $GITHUB_STEP_SUMMARY when
+// available; on other providers the report is printed to stdout so it is
+// never silently dropped.
 func (c *ciOutputs) appendSummary(markdown string) {
-	if c.summaryPath == "" || markdown == "" {
+	if markdown == "" {
 		return
 	}
-	f, err := os.OpenFile(c.summaryPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	if err != nil {
+	if c.summaryPath != "" {
+		f, err := os.OpenFile(c.summaryPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+		if err != nil {
+			return
+		}
+		defer f.Close()
+		_, _ = f.WriteString(markdown)
 		return
 	}
-	defer f.Close()
-	_, _ = f.WriteString(markdown)
+	if c.provider != cienv.ProviderNone {
+		fmt.Println(markdown)
+	}
 }
 
 // ciEOF is the heredoc delimiter for multi-line outputs.
 const ciEOF = "FORGED_EOF"
 
-// runCIAnnotations writes build results to GitHub's annotation stream when
-// running inside Actions: each failed step becomes a ::error:: annotation at
-// the top of the run log, and each warning digest gets ::warning:: lines.
-func runCIAnnotations(results []builder.BuildResult, issuesDigest []string) {
-	if !inGitHubActions() {
+// logGroup wraps a build step in the provider's collapsible log section.
+// On providers without group support it prints a plain banner line instead,
+// so step boundaries stay visible everywhere.
+type logGroup struct {
+	provider cienv.Provider
+	id       string
+	title    string
+}
+
+// startLogGroup opens a collapsible section (or prints a plain banner).
+func startLogGroup(id, title string) *logGroup {
+	g := &logGroup{provider: cienv.Detect(), id: id, title: title}
+	if open := cienv.GroupOpen(g.provider, id, title); open != "" {
+		fmt.Println(open)
+	} else {
+		fmt.Printf("\n  ──  %s  ──\n", title)
+	}
+	return g
+}
+
+// close closes the section. Safe to call on providers without groups.
+func (g *logGroup) close() {
+	if close := cienv.GroupClose(g.provider, g.id, g.title); close != "" {
+		fmt.Println(close)
+	}
+}
+
+// runCIAnnotations emits provider service messages for build results: each
+// failed step becomes an error annotation and each warning digest entry a
+// warning annotation. Providers without service messages are skipped.
+func runCIAnnotations(provider cienv.Provider, results []builder.BuildResult, issuesDigest []string) {
+	if provider == cienv.ProviderNone {
 		return
 	}
 	for _, r := range results {
@@ -89,19 +127,25 @@ func runCIAnnotations(results []builder.BuildResult, issuesDigest []string) {
 			continue
 		}
 		msg := fmt.Sprintf("step %q failed (%.1fs): %s", r.Step, r.Duration, r.Error)
-		fmt.Fprintf(os.Stdout, "::error title=forged:%s::%s\n", r.Step, strings.ReplaceAll(msg, "\n", " "))
+		if line := cienv.ErrorMessage(provider, "forged:"+r.Step, msg); line != "" {
+			fmt.Println(line)
+		}
 	}
 	for i, line := range issuesDigest {
 		if i >= 5 {
-			fmt.Fprintln(os.Stdout, "::warning title=forged::more warnings suppressed — see the issues log")
+			if line := cienv.WarningMessage(provider, "forged", "more warnings suppressed — see the issues log"); line != "" {
+				fmt.Println(line)
+			}
 			break
 		}
-		fmt.Fprintf(os.Stdout, "::warning title=forged::%s\n", strings.ReplaceAll(line, "\n", " "))
+		if line := cienv.WarningMessage(provider, "forged", line); line != "" {
+			fmt.Println(line)
+		}
 	}
 }
 
-// ciSummaryMarkdown renders the step-results table + ZIP info as Markdown for
-// the GitHub run summary page.
+// ciSummaryMarkdown renders the step-results table + ZIP info as Markdown
+// for the CI run summary page (GitHub) or the job log (other providers).
 func ciSummaryMarkdown(cfgName string, results []builder.BuildResult, zipPath string, elapsed time.Duration) string {
 	var sb strings.Builder
 	sb.WriteString("## forged build report\n\n")
@@ -122,7 +166,11 @@ func ciSummaryMarkdown(cfgName string, results []builder.BuildResult, zipPath st
 			size = fmt.Sprintf(" (%.2f MB)", float64(fi.Size())/1048576)
 		}
 		sb.WriteString(fmt.Sprintf("\n**flashable ZIP**: `%s`%s\n", filepath.Base(zipPath), size))
-		sb.WriteString(fmt.Sprintf("\nUpload it with:\n\n```yaml\n- uses: actions/upload-artifact@v4\n  with:\n    name: kernel-zip\n    path: %s\n```\n", zipPath))
+		if cienv.Detect() == cienv.ProviderGitHubActions {
+			sb.WriteString(fmt.Sprintf("\nUpload it with:\n\n```yaml\n- uses: actions/upload-artifact@v4\n  with:\n    name: kernel-zip\n    path: %s\n```\n", zipPath))
+		} else {
+			sb.WriteString(fmt.Sprintf("\nArchive/copy this file in your pipeline's artifact step:\n`%s`\n", zipPath))
+		}
 	}
 	sb.WriteString(fmt.Sprintf("\n**total time**: %s\n", elapsed.Round(time.Second)))
 	return sb.String()
