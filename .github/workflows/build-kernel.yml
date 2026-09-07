@@ -105,13 +105,13 @@ jobs:
 
       # ── Caches: AOSP Clang (~1 GB) + ccache ────────────────────
       - name: Cache AOSP Clang toolchain
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.local/share/forged/toolchains
           key: aosp-clang-${{ env.AOSP_CLANG_VERSION }}-v1
 
       - name: Cache ccache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ccache
           key: ccache-${{ env.KERNEL_DEFCONFIG }}-${{ github.ref_name }}-${{ github.sha }}
