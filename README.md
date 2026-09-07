@@ -1,13 +1,6 @@
 <div align="center">
 
-```
- ██████╗  ██████╗ ██████╗  ██████╗ ███████╗██████╗
- ██╔══██╗██╔═══██╗██╔══██╗██╔════╝ ██╔════╝██╔══██╗
- ██╔══██╗██║   ██║██████╔╝██║  ███╗█████╗  ██║  ██║
- ██╔══██╗██║   ██║██╔══██╗██║   ██║██╔══╝  ██║  ██║
- ██████╔╝╚██████╔╝██║  ██║╚██████╔╝███████╗██████╔╝
- ╚═════╝  ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═════╝
-```
+<img src="docs/demo.gif" alt="forged demo — doctor, live build, and the flashable ZIP, all from one command" width="860">
 
 **forge Android kernels with one command**
 
@@ -100,12 +93,6 @@ docker run --rm -it -v "$PWD/my-kernel":/work -w /work forged
 
 > [!NOTE]
 > Kernel builds need Linux. That's a given on Linux; on Windows use **WSL2** and on macOS use the **Docker** image — see [`docs/windows-macos.md`](docs/windows-macos.md) for the walk-through. The native macOS/Windows binaries handle configs, source management, and SSH workflows against a remote Linux box (the wizard auto-switches to `system-clang` there and prints the right install hint).
-
----
-
-<div align="center">
-  <img src="docs/demo.gif" alt="forged demo — doctor, live build TUI, and the flashable ZIP, all from one command" width="840">
-</div>
 
 ---
 

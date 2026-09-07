@@ -39,6 +39,20 @@ jobs:
       - name: Build forged
         run: go build -trimpath -ldflags "-s -w" -o /usr/local/bin/forged ./cmd/forged
 
+      # Install everything `forged doctor` checks for, so the demo opens on
+      # a full wall of ✓ (no red ✗ rows in the hero GIF).
+      - name: Install doctor deps (all-green doctor scene)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            clang lld llvm flex bison bc ccache aria2 \
+            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
+          # Point LLVM binutils names at the installed binaries where needed
+          for tool in ld.lld llvm-ar llvm-nm llvm-objcopy llvm-objdump llvm-readelf llvm-strip; do
+            command -v "$tool" >/dev/null 2>&1 || sudo ln -sf "/usr/bin/${tool#llvm-}" "/usr/bin/$tool" 2>/dev/null || true
+          done
+          true
+
       - name: Install ttyd + ffmpeg (vhs runtime deps)
         run: |
           # apt's ffmpeg is fine; ttyd comes from the vhs-recommended binary
