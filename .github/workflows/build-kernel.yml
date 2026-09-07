@@ -71,7 +71,7 @@ jobs:
 
     steps:
       - name: Checkout kernel source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
 
@@ -174,7 +174,7 @@ jobs:
 #   If your kernel source lives in a private repo, add a checkout step with
 #   a token instead of relying on --source-url:
 #
-#     - uses: actions/checkout@v4
+#     - uses: actions/checkout@v7
 #       with:
 #         repository: your-org/your-kernel
 #         ref: your-branch
