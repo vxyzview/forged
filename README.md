@@ -11,29 +11,13 @@
 
 **forge Android kernels with one command**
 
-clang-only · live TUI · single binary · no GCC
+`mrproper → defconfig → clang → AnyKernel3 zip`
 
-[![Go](https://img.shields.io/badge/Go-1.24%2B-00add8?style=flat-square&logo=go&logoColor=white)](https://go.dev)
-[![License: MIT](https://img.shields.io/badge/License-MIT-ff7c00?style=flat-square)](LICENSE)
-[![Bubble Tea](https://img.shields.io/badge/TUI-Bubble%20Tea-ffbe00?style=flat-square)](https://github.com/charmbracelet/bubbletea)
-[![LLVM](https://img.shields.io/badge/Toolchain-LLVM%20%2F%20Clang-39d353?style=flat-square)](https://llvm.org)
-[![AnyKernel3](https://img.shields.io/badge/Packaging-AnyKernel3-a8b2c0?style=flat-square)](https://github.com/osm0sis/AnyKernel3)
+[Go 1.24+](https://go.dev) · [LLVM/Clang](https://llvm.org) · [Bubble Tea](https://github.com/charmbracelet/bubbletea) · [MIT](LICENSE)
 
 </div>
 
----
-
-## Why forged?
-
-Kernel building is a multi-step, copy-paste-from-Telegram ritual that breaks the moment you blink. **forged** turns it into a single command:
-
-```
-mrproper → defconfig → clang → AnyKernel3 zip
-```
-
-…all wrapped in a live Bubble Tea TUI with a scrolling log, phase headers, and forge-fire colors. One static binary. No interpreter, no runtime, no GCC.
-
-```
+```text
 $ forged build
 
   ▌ FORGE
@@ -48,118 +32,90 @@ $ forged build
 
 ---
 
-## Features
+## Why
 
-- **One command, full pipeline** — clean, defconfig, compile, and package a flashable AnyKernel3 ZIP automatically
-- **LLVM-only toolchain** — AOSP prebuilt Clang or system Clang, with all GNU binutils swapped for `lld` / `llvm-*`. Zero GCC.
-- **Live TUI** — progress bars, phase headers, spinners, colourised compiler output. Pure terminal, no bloat.
-- **Non-TTY fallback** — piped or CI output automatically switches to plain streaming logs. Builds never break headless.
-- **ccache built in** — kernel-tuned sloppiness flags, CLI overrides, stats command. Rebuilds **60–90% faster**.
-- **Auto toolchain setup** — downloads AOSP Clang via aria2 (with net/http fallback), validates cross-compilers, offers to install them.
-- **Git-sourced kernels** — point it at any kernel repo; forged shallow-clones before the first build.
-- **TOML + JSON config** — forward-compatible reads, interactive wizard, portable files.
-- **LTO aware** — `none` / `thin` / `full`, safe alongside ccache ≥ 4.0.
-- **Issues log** — every build writes an errors + warnings digest under `logs/`.
+Kernel building is a multi-step, copy-paste-from-Telegram ritual that breaks the moment you blink. forged collapses it into one command — live TUI, scrolling log, forge-fire colors — and packages a flashable AnyKernel3 ZIP when the smoke clears.
+
+One static binary. No interpreter, no runtime, no GCC.
 
 ---
 
 ## Install
 
-One-liner — works on Linux, macOS, and Windows (Git Bash/MSYS2/WSL). Detects your platform, downloads the right prebuilt binary from GitHub Releases, verifies the checksum, and installs it:
-
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vxyzview/forged/main/install.sh | bash
 ```
 
-| OS | Architectures |
+| | |
 |---|---|
-| Linux | x86_64 · arm64 · x86 (386) · armv7 |
-| macOS | Apple Silicon (arm64) · Intel (amd64) |
-| Windows | x86_64 · arm64 (grab the `.zip` from Releases) |
+| **Linux** | x86_64 · arm64 · x86 · armv7 |
+| **macOS** | Apple Silicon · Intel |
+| **Windows** | x86_64 · arm64 — [manual `.zip`](https://github.com/vxyzview/forged/releases/latest) |
 
-> Kernel *builds* need Linux — that's where `make`, the kernel sources, and the AOSP Clang prebuilts live. On macOS/Windows, `forged setup-toolchain` fails fast with the right install command (`brew install llvm`, `winget install LLVM.LLVM`), and the wizard auto-switches you to `system-clang`. Use those builds for `forged config` / `forged info`, cloning sources, and driving remote Linux builders over SSH.
-
-### With `go install`
+Or with Go:
 
 ```bash
 go install github.com/vxyzview/forged/cmd/forged@latest
 ```
 
-### From source
-
-```bash
-git clone https://github.com/vxyzview/forged.git
-cd forged && go build -o forged ./cmd/forged
-```
-
-You need **Go 1.24+** to build. To run: `git`, `make`, and a Clang toolchain (or let forged fetch one).
+> Kernel builds need Linux — that's where `make` and the AOSP Clang prebuilts live. Elsewhere, forged is your config wizard, source manager, and SSH co-pilot for a remote Linux box. The wizard auto-switches to `system-clang` and prints the right install hint (`brew install llvm`, `winget install LLVM.LLVM`).
 
 ---
 
 ## Quick start
 
 ```bash
-# fetch the AOSP Clang toolchain (first time only)
-forged setup-toolchain
-
-# build — the wizard writes your config, then the forge lights up
-forged build --wizard
-
-# or straight from a saved config
-forged build -c build_config.toml --no-clean --ccache
+forged setup-toolchain          # fetch AOSP Clang — first time only
+forged build --wizard           # wizard writes your config, then the forge lights up
 ```
 
-That's it. Flash the ZIP that lands in `releases/`.
+Flash the ZIP that lands in `releases/`.
+
+```bash
+forged build -c build_config.toml --no-clean --ccache   # incremental rebuild
+```
 
 ---
 
 ## CLI
 
-### `forged build`
+**`forged build`**
 
-| Flag | What it does |
+| | |
 |---|---|
-| `-c, --config PATH` | Load a JSON or TOML build config |
+| `-c, --config PATH` | JSON or TOML build config |
 | `-w, --wizard` | Interactive setup wizard |
-| `-s, --source DIR` | Kernel source directory (overrides config) |
-| `--source-url URL` | Git URL to clone the kernel source from |
-| `-d, --defconfig NAME` | Defconfig (overrides config) |
+| `-s, --source DIR` | Kernel source directory |
+| `--source-url URL` | Clone the kernel source first |
+| `-d, --defconfig NAME` | Defconfig |
 | `-j, --jobs N` | Parallel jobs (`0` = auto) |
-| `--no-clean` | Skip `mrproper` — for incremental builds |
-| `--no-package` | Skip AnyKernel3 ZIP |
-| `--version-tag TAG` | Tag appended to the output ZIP name |
-| `-F, --make-flag VAR=VALUE` | Append a make variable (repeatable) |
-| `-E, --env KEY=VALUE` | Inject an env var (repeatable) |
-| `--ccache` / `--no-ccache` | Toggle ccache without touching config |
+| `--no-clean` | Skip `mrproper` |
+| `--no-package` | Skip the ZIP |
+| `--version-tag TAG` | Tag on the output ZIP name |
+| `-F, --make-flag VAR=VALUE` | Append a make variable |
+| `-E, --env KEY=VALUE` | Inject an env var |
+| `--ccache` / `--no-ccache` | Toggle ccache |
 
-### `forged setup-toolchain`
+**`forged setup-toolchain`**
 
-| Flag | What it does |
+| | |
 |---|---|
 | `--preset PRESET` | `aosp-clang` (default) or `system-clang` |
 | `--version VERSION` | AOSP Clang revision, e.g. `r584948b` |
-| `--toolchain-dir DIR` | Storage path (default `~/.local/share/forged/toolchains`) |
-| `--install-cross-compilers` | Auto-install GNU cross-compilers via apt |
+| `--toolchain-dir DIR` | Storage path |
+| `--install-cross-compilers` | Auto-install GNU cross-compilers |
 
-### Other commands
-
-```bash
-forged config build_config.toml   # interactive wizard, saves config
-forged info build_config.toml     # print a config summary table
-forged ccache-stats --verbose     # cache stats (--zero to reset)
-```
+**`forged config`** — wizard, saves a config · **`forged info`** — print a config summary · **`forged ccache-stats`** — cache statistics, `--zero` to reset
 
 ---
 
 ## Config
 
-Minimal TOML — see [`config/example_build_config.toml`](config/example_build_config.toml) for every field, annotated:
-
 ```toml
 kernel_source    = "/path/to/kernel/source"
 kernel_defconfig = "vendor/your_device_defconfig"
 arch             = "arm64"
-jobs             = 0        # 0 = auto-detect CPU count
+jobs             = 0        # 0 = auto
 
 [toolchain]
 preset             = "aosp-clang"
@@ -176,7 +132,7 @@ enabled  = true
 max_size = "5G"
 ```
 
-JSON works identically.
+Every field, annotated: [`config/example_build_config.toml`](config/example_build_config.toml). JSON works identically.
 
 ---
 
@@ -184,24 +140,24 @@ JSON works identically.
 
 | Preset | Source | Auto-download |
 |---|---|---|
-| `aosp-clang` | AOSP prebuilts | **yes** — recommended |
-| `system-clang` | system `clang` | no |
+| `aosp-clang` | AOSP prebuilts | yes — linux-x86_64 only |
+| `system-clang` | system `clang` | — |
 
-All presets set `use_llvm_binutils`, replacing GNU binutils with
-`ld.lld · llvm-ar · llvm-nm · llvm-objcopy · llvm-objdump · llvm-readelf · llvm-strip`.
-**No GCC installation required.**
+All presets replace GNU binutils with LLVM:
+`ld.lld · llvm-ar · llvm-nm · llvm-objcopy · llvm-objdump · llvm-readelf · llvm-strip`
 
-Cross-compilers (for arm64/arm targets):
+**No GCC required.**
+
+Cross-compilers for arm64/arm targets:
 
 ```bash
 forged setup-toolchain --install-cross-compilers
-# or manually: sudo apt install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
 ```
 
-More detail in [`docs/toolchains.md`](docs/toolchains.md).
+More in [`docs/toolchains.md`](docs/toolchains.md).
 
 ---
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Forged with love by vxyzview.
+[MIT](LICENSE) — forged with love by [vxyzview](https://github.com/vxyzview).
