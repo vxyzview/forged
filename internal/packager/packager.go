@@ -281,6 +281,9 @@ func ak3LooksPopulated(base string) bool {
 		fileExists(filepath.Join(base, "META-INF", "com", "google", "android", "update-binary"))
 }
 
+// cloneKernelSourceFn indirection lets tests intercept AnyKernel3 clones.
+var cloneKernelSourceFn = toolchain.CloneKernelSource
+
 // EnsureSource makes sure the staging directory holds a usable AnyKernel3
 // tree according to the configured source mode:
 //
@@ -326,7 +329,16 @@ func (p *Packager) EnsureSource() error {
 		if err := os.MkdirAll(parent, 0o755); err != nil {
 			return err
 		}
-		if _, err := toolchain.CloneKernelSource(context.Background(), repo, base, p.ak3.RepoBranch, p.ak3.RepoDepth, p.log); err != nil {
+		// A pre-existing (possibly empty or junk) staging directory makes
+		// git clone fail with "destination path already exists". Remove it
+		// unless it actually holds a populated tree (handled above).
+		if _, err := os.Stat(base); err == nil {
+			p.log("[ak3] Clearing unpopulated staging directory for fresh clone …")
+			if err := os.RemoveAll(base); err != nil {
+				return fmt.Errorf("removing unpopulated AnyKernel3 staging dir failed: %w", err)
+			}
+		}
+		if _, err := cloneKernelSourceFn(context.Background(), repo, base, p.ak3.RepoBranch, p.ak3.RepoDepth, p.log); err != nil {
 			return fmt.Errorf("cloning AnyKernel3 failed: %w", err)
 		}
 		return nil
