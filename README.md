@@ -15,7 +15,7 @@
 
 [![CI](https://github.com/vxyzview/forged/actions/workflows/ci.yml/badge.svg?style=flat-square)](https://github.com/vxyzview/forged/actions/workflows/ci.yml)
 [![Code Quality](https://img.shields.io/badge/code%20quality-A-3FB950?style=flat-square)](https://github.com/vxyzview/forged/actions/workflows/release.yml)
-[![Go](https://img.shields.io/badge/Go-1.26-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev)
+[![Go](https://img.shields.io/badge/Go-1.27-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev)
 [![LLVM / Clang](https://img.shields.io/badge/Toolchain-LLVM%20%2F%20Clang-39D353?style=flat-square&logo=llvm&logoColor=white)](https://llvm.org)
 [![Bubble Tea](https://img.shields.io/badge/TUI-Bubble%20Tea-FF69B4?style=flat-square)](https://github.com/charmbracelet/bubbletea)
 [![Cobra](https://img.shields.io/badge/CLI-Cobra-1E4174?style=flat-square)](https://github.com/spf13/cobra)
