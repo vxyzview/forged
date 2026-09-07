@@ -55,8 +55,10 @@ func runDoctorChecks() *doctorResult {
 	res := &doctorResult{}
 
 	// ── Platform gate ────────────────────────────────────────────────────
+	// Kernel compilation needs Linux — either a real Linux box, or WSL2
+	// (Windows) / Docker (macOS); see docs/windows-macos.md.
 	if runtime.GOOS != "linux" {
-		res.fatal = fmt.Sprintf("kernel compilation needs Linux (this host: %s)", runtime.GOOS)
+		res.fatal = fmt.Sprintf("kernel compilation needs Linux (this host: %s) — build via WSL2 (Windows) or Docker (macOS); see docs/windows-macos.md", runtime.GOOS)
 	}
 
 	// ── Required tools ───────────────────────────────────────────────────

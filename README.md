@@ -25,7 +25,7 @@
 [![Platforms](https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-lightgrey?style=flat-square)](#install)
 [![License: MIT](https://img.shields.io/badge/license-MIT-FF7C00?style=flat-square)](LICENSE)
 
-[Install](#install) · [Quick start](#quick-start) · [CLI](#cli) · [Config](#config) · [Toolchains](#toolchains) · [FAQ](#faq)
+[Install](#install) · [Quick start](#quick-start) · [CLI](#cli) · [Config](#config) · [Toolchains](#toolchains) · [Windows / macOS](docs/windows-macos.md) · [FAQ](#faq)
 
 </div>
 
@@ -68,6 +68,7 @@ One static binary. No interpreter, no runtime, no GCC.
 - **ccache, tuned for kernels** — kernel-safe sloppiness flags pre-configured, `--ccache` / `--no-ccache` CLI overrides, a stats command. Rebuilds drop **60–90%**.
 - **Auto toolchain setup** — `forged setup-toolchain` downloads AOSP Clang via aria2 (16-connection, net/http fallback), validates cross-compilers, and can install them for you.
 - **Flexible sources** — kernel tree from a local dir or any git URL; AnyKernel3 staging from upstream, your fork, a local checkout, or a stub.
+- **Windows/macOS-friendly** — WSL2 walkthrough for Windows, ready-made Docker image for macOS — plus native binaries for configs and SSH workflows.
 - **Portable configs** — TOML or JSON, forward-compatible (unknown keys from newer versions are ignored), interactive wizard included.
 - **LTO aware** — `thin` / `full`, transparent alongside ccache ≥ 4.0.
 - **Issues log** — every build writes an errors + warnings digest under `out/logs/`, so you never scroll the TUI for that one warning again.
@@ -86,11 +87,15 @@ SHA-256 checksum, and installs to `/usr/local/bin` (or `~/.local/bin`).
 
 | | | |
 |---|---|---|
-| **Linux** | x86_64 · arm64 · x86 · armv7 | full builds |
-| **macOS** | Apple Silicon · Intel | config / SSH workflows |
-| **Windows** | x86_64 · arm64 | config / SSH workflows — [manual `.zip`](https://github.com/vxyzview/forged/releases/latest) |
+| **Linux** | x86_64 · arm64 · x86 · armv7 | full builds — native |
+| **Windows** | x86_64 · arm64 | [**WSL2**](docs/windows-macos.md) for builds · config / SSH workflows natively |
+| **macOS** | Apple Silicon · Intel | [**Docker**](docs/windows-macos.md) for builds · config / SSH workflows natively |
 
 Pin a version with `FORGED_VERSION=v1.0.4`.
+
+Windows users: run the installer **inside WSL2** (Ubuntu) — running it in Git
+Bash / MSYS prints the WSL2 setup steps instead. See
+[`docs/windows-macos.md`](docs/windows-macos.md).
 
 Or with Go:
 
@@ -98,8 +103,15 @@ Or with Go:
 go install github.com/vxyzview/forged/cmd/forged@latest
 ```
 
+Or with Docker — a ready Ubuntu image with Clang/LLVM, kbuild tools, cross-compilers, ccache and aria2 preinstalled:
+
+```bash
+docker build -t forged https://github.com/vxyzview/forged.git
+docker run --rm -it -v "$PWD/my-kernel":/work -w /work forged
+```
+
 > [!NOTE]
-> Kernel builds need Linux — that's where `make` and the AOSP Clang prebuilts live. On macOS and Windows, forged is your config wizard, source manager, and SSH co-pilot for a remote Linux box. The wizard auto-switches to `system-clang` and prints the right install hint (`brew install llvm`, `winget install LLVM.LLVM`).
+> Kernel builds need Linux. That's a given on Linux; on Windows use **WSL2** and on macOS use the **Docker** image — see [`docs/windows-macos.md`](docs/windows-macos.md) for the walk-through. The native macOS/Windows binaries handle configs, source management, and SSH workflows against a remote Linux box (the wizard auto-switches to `system-clang` there and prints the right install hint).
 
 ---
 
@@ -264,7 +276,7 @@ Yes — as of `do_modules = -1` (auto): when the build produces `.ko` files, for
 `forged doctor` — checks git, make, clang, LLVM binutils, cross-compilers, ccache, aria2 and free disk space, printing a fix command for anything missing.
 
 **Does it work on macOS / Windows?**
-The binary runs, and config / info / clone workflows work great. Actual kernel compilation needs Linux — see [Install](#install).
+Yes — natively for configs, source management and SSH workflows; for actual builds use **WSL2** (Windows) or the repo's **Docker image** (macOS). Full guide: [`docs/windows-macos.md`](docs/windows-macos.md).
 
 ---
 
@@ -283,7 +295,8 @@ forged/
 │   ├── tui/               # Bubble Tea live build monitor
 │   └── wizard/            # huh-based interactive config wizard
 ├── config/                # annotated example configs (TOML + JSON)
-├── docs/                  # toolchain guides
+├── docs/                  # toolchain + platform guides (WSL2, Docker)
+├── Dockerfile             # ready-to-build Ubuntu image (Clang/LLVM + tools)
 └── AnyKernel3/            # staging area (populated per-build)
 ```
 

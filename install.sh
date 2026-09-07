@@ -62,9 +62,17 @@ case "$ARCH" in
 esac
 
 if [ "$OS" = "windows" ]; then
-  fail "Windows detected — download forged manually from:
-  https://github.com/${REPO}/releases
-Grab forged-<version>-windows-amd64.zip (or -windows-arm64.zip), extract, and add it to PATH."
+  fail "Windows detected.
+
+  Kernel builds need Linux — on Windows 10/11 use WSL2:
+    1. wsl --install            (PowerShell, as Administrator — then reboot)
+    2. open the Ubuntu app and re-run this installer there:
+         curl -fsSL https://raw.githubusercontent.com/${REPO}/main/install.sh | bash
+  Full guide: https://github.com/${REPO}/blob/main/docs/windows-macos.md
+
+  Or grab the Windows-native binary (configs / SSH workflows only, no local
+  kernel compilation) from https://github.com/${REPO}/releases :
+    forged-<version>-windows-amd64.zip (or -windows-arm64.zip)"
 fi
 
 # armv7 is linux-only
