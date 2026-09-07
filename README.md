@@ -90,7 +90,7 @@ SHA-256 checksum, and installs to `/usr/local/bin` (or `~/.local/bin`).
 | **macOS** | Apple Silicon · Intel | config / SSH workflows |
 | **Windows** | x86_64 · arm64 | config / SSH workflows — [manual `.zip`](https://github.com/vxyzview/forged/releases/latest) |
 
-Pin a version with `FORGED_VERSION=v1.0.3`.
+Pin a version with `FORGED_VERSION=v1.0.4`.
 
 Or with Go:
 
