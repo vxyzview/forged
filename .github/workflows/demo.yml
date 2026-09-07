@@ -47,11 +47,14 @@ jobs:
           sudo apt-get install -y -qq \
             clang lld llvm flex bison bc ccache aria2 \
             gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
-          # Point LLVM binutils names at the installed binaries where needed
-          for tool in ld.lld llvm-ar llvm-nm llvm-objcopy llvm-objdump llvm-readelf llvm-strip; do
-            command -v "$tool" >/dev/null 2>&1 || sudo ln -sf "/usr/bin/${tool#llvm-}" "/usr/bin/$tool" 2>/dev/null || true
+          # Ubuntu ships llvm-* tools without the bare names; forged and the
+          # doctor check look for the plain ones (ld.lld, llvm-ar, …).
+          for t in ld.lld llvm-ar llvm-nm llvm-objcopy llvm-objdump \
+                   llvm-readelf llvm-strip; do
+            command -v "$t" >/dev/null 2>&1 || \
+              sudo ln -sf "$(command -v "${t#ld.}" 2>/dev/null || echo "/usr/bin/${t#llvm-}")" \
+                "/usr/local/bin/$t" || true
           done
-          true
 
       - name: Install ttyd + ffmpeg (vhs runtime deps)
         run: |
