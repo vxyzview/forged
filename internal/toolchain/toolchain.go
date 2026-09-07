@@ -25,7 +25,21 @@ import (
 // AOSPClangTarballBase is the direct tarball archive base served by
 // android.googlesource.com. Full URL pattern:
 // {AOSPClangTarballBase}/{revision}.tar.gz
+//
+// AOSP publishes kernel-build Clang prebuilts as linux-x86 archives only.
+// Auto-download is therefore only offered on linux/amd64 hosts; every other
+// platform should use the system-clang preset instead.
 const AOSPClangTarballBase = "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main-kernel"
+
+// aospClangSupportedFn indirection lets tests force AOSP availability
+// regardless of the host platform.
+var aospClangSupportedFn = AOSPClangSupported
+
+// AOSPClangSupported reports whether the AOSP prebuilt Clang archive can run
+// on the current host (linux-x86_64 only).
+func AOSPClangSupported() bool {
+	return runtime.GOOS == "linux" && runtime.GOARCH == "amd64"
+}
 
 // DefaultToolchainBase is the default location for auto-managed toolchains.
 func DefaultToolchainBase() string {
@@ -328,6 +342,10 @@ func DownloadAOSPClang(ctx context.Context, destBase, preset, version string, pr
 	if preset != "aosp-clang" {
 		return "", fmt.Errorf("no AOSP auto-download handler for preset '%s'", preset)
 	}
+	if !aospClangSupportedFn() {
+		return "", fmt.Errorf("aosp-clang is only distributed for linux/amd64 hosts (this host: %s/%s).\nUse the system-clang preset instead — install clang with:  %s",
+			runtime.GOOS, runtime.GOARCH, InstallClangHint())
+	}
 	return downloadAOSPClangFn(ctx, destBase, preset, version, progress)
 }
 
@@ -531,12 +549,18 @@ func AutoSetupToolchain(ctx context.Context, cfg *config.BuildConfig, toolchainB
 			checkCrossCompilers(installCrossCompilers, progress)
 			return cfg, nil
 		}
-		return nil, fmt.Errorf("system-clang preset selected but '%s' is not on PATH.\nInstall with:  sudo apt install clang lld llvm", tc.CC)
+		return nil, fmt.Errorf("system-clang preset selected but '%s' is not on PATH.\nInstall with:  %s", tc.CC, InstallClangHint())
 	}
 
-	// Step 2: download.
+	// Step 2: download (aosp-clang). The prebuilt archive is linux-x86_64
+	// only — fail early with a useful hint instead of downloading an
+	// unrunnable toolchain.
 	if tc.Preset != "aosp-clang" {
 		return nil, fmt.Errorf("no auto-setup handler for toolchain preset '%s'.\nPlease set 'toolchain.extra_path' manually in your build config.", tc.Preset)
+	}
+	if !aospClangSupportedFn() {
+		return nil, fmt.Errorf("aosp-clang auto-download is only supported on linux/amd64 (this host: %s/%s).\nAOSP publishes no Clang prebuilts for other platforms.\nSwitch to the system-clang preset and install clang with:  %s",
+			runtime.GOOS, runtime.GOARCH, InstallClangHint())
 	}
 	binDir, err := downloadAOSPClangFn(ctx, base, tc.Preset, tc.AOSPClangVersion, progress)
 	if err != nil {
@@ -590,5 +614,19 @@ func HostArch() string {
 		return "x86_64"
 	default:
 		return runtime.GOARCH
+	}
+}
+
+// InstallClangHint returns a platform-appropriate hint for installing Clang.
+//
+// Exported so the wizard can print the same guidance as toolchain errors.
+func InstallClangHint() string {
+	switch runtime.GOOS {
+	case "darwin":
+		return "brew install llvm"
+	case "windows":
+		return "winget install LLVM.LLVM (or download from https://releases.llvm.org)"
+	default:
+		return "sudo apt install clang lld llvm"
 	}
 }

@@ -65,15 +65,19 @@ $ forged build
 
 ## Install
 
-One-liner — grabs the right prebuilt binary for your machine from GitHub Releases, verifies the checksum, and installs it:
+One-liner — works on Linux, macOS, and Windows (Git Bash/MSYS2/WSL). Detects your platform, downloads the right prebuilt binary from GitHub Releases, verifies the checksum, and installs it:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vxyzview/forged/main/install.sh | bash
 ```
 
-Supported: **linux** (amd64, arm64, 386, armv7), **macOS** (Intel & Apple Silicon), **Windows** (amd64 & arm64 — download the `.zip` manually).
+| OS | Architectures |
+|---|---|
+| Linux | x86_64 · arm64 · x86 (386) · armv7 |
+| macOS | Apple Silicon (arm64) · Intel (amd64) |
+| Windows | x86_64 · arm64 (grab the `.zip` from Releases) |
 
-> Kernel *builds* need Linux — that's where the kernel toolchains live. On macOS and Windows, forged is still handy for `forged config`, `forged info`, cloning sources, and driving remote builds over SSH.
+> Kernel *builds* need Linux — that's where `make`, the kernel sources, and the AOSP Clang prebuilts live. On macOS/Windows, `forged setup-toolchain` fails fast with the right install command (`brew install llvm`, `winget install LLVM.LLVM`), and the wizard auto-switches you to `system-clang`. Use those builds for `forged config` / `forged info`, cloning sources, and driving remote Linux builders over SSH.
 
 ### With `go install`
 

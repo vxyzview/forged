@@ -75,6 +75,10 @@ func TestDownloadAOSPClangUnknownPreset(t *testing.T) {
 }
 
 func TestDownloadAOSPClangAlreadyPresent(t *testing.T) {
+	origSupported := aospClangSupportedFn
+	aospClangSupportedFn = func() bool { return true }
+	defer func() { aospClangSupportedFn = origSupported }()
+
 	base := t.TempDir()
 	makeFakeClangDir(t, filepath.Join(base, preset), revision)
 
@@ -93,6 +97,10 @@ func TestDownloadAOSPClangAlreadyPresent(t *testing.T) {
 }
 
 func TestDownloadAOSPClangSuccess(t *testing.T) {
+	origSupported := aospClangSupportedFn
+	aospClangSupportedFn = func() bool { return true }
+	defer func() { aospClangSupportedFn = origSupported }()
+
 	base := t.TempDir()
 
 	fakeDownload := func(_ context.Context, url, dest string, _ Progress) error {
@@ -283,6 +291,10 @@ func TestAutoSetupToolchainDownloadsAOSP(t *testing.T) {
 		return fakeBin, nil
 	}
 	defer func() { downloadAOSPClangFn = orig }()
+
+	origSupported := aospClangSupportedFn
+	aospClangSupportedFn = func() bool { return true }
+	defer func() { aospClangSupportedFn = origSupported }()
 
 	cfg := config.New()
 	cfg.Toolchain.Preset = preset

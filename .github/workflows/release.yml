@@ -93,8 +93,9 @@ jobs:
             cp "forged" "$ARCHIVE_BASENAME"
             tar -czf "dist/${ARCHIVE_BASENAME}.tar.gz" "$ARCHIVE_BASENAME"
           fi
-          # Checksums for every artifact
-          (cd dist && sha256sum ./* > SHA256SUMS.txt)
+          # Checksums for every artifact — computed on the files that
+          # actually ship in the release (not the per-job working copies)
+          (cd dist && sha256sum ./* | sed 's| \./| |' > SHA256SUMS.txt)
           ls -la dist/
 
       - name: Upload artifacts
@@ -116,6 +117,13 @@ jobs:
 
       - name: List artifacts
         run: ls -la artifacts/
+
+      - name: Regenerate unified checksums
+        run: |
+          cd artifacts
+          find . -type f ! -name 'SHA256SUMS*' -exec sha256sum {} \; \
+            | sed 's| \./| |' > SHA256SUMS.txt
+          cat SHA256SUMS.txt
 
       - name: Create release
         uses: softprops/action-gh-release@v2

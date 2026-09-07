@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -169,9 +170,22 @@ func Run() (*config.BuildConfig, error) {
 			cfg.Toolchain.AOSPClangVersion = s
 		}
 		fmt.Printf("\n  ›  Will download clang-%s.tar.gz from AOSP googlesource.\n", cfg.Toolchain.AOSPClangVersion)
+		// AOSP only publishes kernel-build Clang prebuilts as linux-x86
+		// archives — they cannot run on macOS, Windows, or Linux/arm hosts.
+		// Fall back to system-clang everywhere else so the wizard never
+		// produces a config that fails at build time.
+		if !toolchain.AOSPClangSupported() {
+			fmt.Printf("  ▲  AOSP prebuilts are linux-x86_64 only; this host is %s/%s.\n", runtime.GOOS, runtime.GOARCH)
+			fmt.Printf("     Switching to system-clang — install it with:  %s\n", toolchain.InstallClangHint())
+			if err := cfg.Toolchain.ApplyPreset("system-clang"); err != nil {
+				return nil, err
+			}
+		}
 	}
-	cfg.Toolchain.AutoClone = autoClone
-	cfg.AutoSetupToolchain = autoClone
+	// Keep auto-clone in sync with what the preset can actually do: the
+	// aosp-clang preset has nothing to auto-download off linux/amd64.
+	cfg.Toolchain.AutoClone = autoClone && cfg.Toolchain.Preset == "aosp-clang" && toolchain.AOSPClangSupported()
+	cfg.AutoSetupToolchain = cfg.Toolchain.AutoClone
 	if autoClone {
 		if s := strings.TrimSpace(toolchainDir); s != "" {
 			cfg.ToolchainDir = s
