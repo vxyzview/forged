@@ -22,7 +22,7 @@ RUN CGO_ENABLED=0 go build -trimpath \
       -ldflags "-s -w -X github.com/vxyzview/forged/internal/config.Version=docker" \
       -o /forged ./cmd/forged
 
-FROM ubuntu:24.04
+FROM ubuntu:26.04
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Kernel build host deps:
