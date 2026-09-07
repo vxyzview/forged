@@ -21,7 +21,7 @@ import (
 // Release builds override it at link time:
 //
 //	go build -ldflags "-X github.com/vxyzview/forged/internal/config.Version=v1.2.3"
-var Version = "1.0.1"
+var Version = "1.0.3"
 
 // Valid LTO modes.
 var validLTOModes = map[string]bool{"thin": true, "full": true}
