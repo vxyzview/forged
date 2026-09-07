@@ -526,7 +526,14 @@ func finishBuild(cfg *config.BuildConfig, b *builder.KernelBuilder, results []bu
 			if err := p.Prepare(image, dtbs, mods); err != nil {
 				return fmt.Errorf("packaging failed: %w", err)
 			}
-			zp, err := p.CreateZip(cfg.ZipOutputDir, versionTag)
+			// zip_output_dir is documented as relative to the kernel source
+			// root (the ZIP sits next to the tree it was built from), so
+			// resolve it there instead of the process working directory.
+			zipDir := cfg.ZipOutputDir
+			if !filepath.IsAbs(zipDir) {
+				zipDir = filepath.Join(b.SourceDir, zipDir)
+			}
+			zp, err := p.CreateZip(zipDir, versionTag)
 			if err != nil {
 				return fmt.Errorf("zip creation failed: %w", err)
 			}

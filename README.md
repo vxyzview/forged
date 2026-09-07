@@ -133,7 +133,7 @@ forged setup-toolchain          # fetch AOSP Clang — first time only
 forged build --wizard           # wizard writes your config, then the forge lights up
 ```
 
-Flash the ZIP that lands in `releases/`.
+Flash the ZIP that lands in `releases/` next to your kernel tree.
 
 Day two — incremental rebuild with cache:
 
