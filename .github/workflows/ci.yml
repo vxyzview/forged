@@ -68,26 +68,26 @@ jobs:
 
       # The runner's system clang is enough: --toolchain-extra-path points
       # forged at it, so no AOSP Clang download is needed for this job.
+      #
+      # forged writes machine-readable outputs to the runner-managed
+      # $GITHUB_OUTPUT — do NOT override that variable (the runner owns it
+      # and re-points it per step); the `outputs:` mapping below is the
+      # supported way to read those values in later steps.
       - name: E2E — build the fixture kernel tree with --ci
+        id: kernel
         run: |
           ./forged build --ci \
             --source test/fixtures/kernel-fixture \
             --defconfig ci_defconfig \
             --toolchain-extra-path /usr/bin \
             --version-tag e2e-${GITHUB_SHA::8}
-        env:
-          # Persist machine-readable outputs for the verify step
-          GITHUB_OUTPUT: ${{ github.workspace }}/.forged-e2e-outputs.txt
-
       - name: E2E — verify machine-readable outputs
         run: |
-          OUT=.forged-e2e-outputs.txt
-          grep -q "outcome=success" "$OUT"
-          # zip_path is absolute and points at the real flashable ZIP
-          ZP=$(sed -n 's/^zip_path=//p' "$OUT")
+          test -n "${{ steps.kernel.outputs.zip_path }}" || { echo "zip_path output missing"; exit 1; }
+          ZP="${{ steps.kernel.outputs.zip_path }}"
           test -f "$ZP" || { echo "zip_path does not exist: $ZP"; exit 1; }
           unzip -l "$ZP" | grep -q anykernel.sh
-          echo "FORGED_ZIP=$ZP" >> "$GITHUB_ENV"
+          grep -q "success" <<< "${{ steps.kernel.outputs.outcome }}"
 
       - name: E2E — verify ZIP contents (no VCS metadata, has payload)
         run: |
@@ -97,12 +97,12 @@ jobs:
           unzip -l "$ZIP" | grep -q "META-INF/com/google/android/update-binary"
 
       - name: Upload fixture ZIP artifact
-        if: env.FORGED_ZIP != ''
+        if: steps.kernel.outputs.zip_path != ''
         uses: actions/upload-artifact@v7
         with:
           name: fixture-kernel-zip
-          # Absolute path handed over by the verify step
-          path: ${{ env.FORGED_ZIP }}
+          # Absolute path produced by the build step's zip_path output
+          path: ${{ steps.kernel.outputs.zip_path }}
           retention-days: 7
 
   docker:
