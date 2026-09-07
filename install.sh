@@ -15,6 +15,16 @@ set -u
 REPO="vxyzview/forged"
 VERSION="${FORGED_VERSION:-latest}"
 
+# Allow `curl … | bash -s -- --version v1.0.4` in addition to the
+# FORGED_VERSION env var (handy inside CI workflows).
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --version) VERSION="${2:-latest}"; shift 2 ;;
+    --version=*) VERSION="${1#*=}"; shift ;;
+    *) shift ;;
+  esac
+done
+
 # ── pretty output ─────────────────────────────────────────────────────────────
 if [ -t 1 ]; then
   BOLD=$(printf '\033[1m'); DIM=$(printf '\033[2m')

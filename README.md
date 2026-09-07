@@ -163,6 +163,10 @@ forged build --source-url https://github.com/you/kernel.git \
 | `-F, --make-flag VAR=VALUE` | Append a make variable (repeatable) |
 | `-E, --env KEY=VALUE` | Inject an env var (repeatable) |
 | `--ccache` / `--no-ccache` | Toggle ccache |
+| `--ci` | CI mode: no prompts, results → `GITHUB_OUTPUT` / `GITHUB_STEP_SUMMARY` (auto-on in GitHub Actions) |
+| `--toolchain-dir DIR` | Where auto-downloaded toolchains live (cache-friendly) |
+| `--toolchain-extra-path DIR` | Pre-provisioned clang location, skips auto-download (repeatable) |
+| `--arch ARCH` | `arm64` (default) / `arm` / `x86_64` |
 
 **`forged setup-toolchain`**
 
@@ -277,6 +281,9 @@ Yes — as of `do_modules = -1` (auto): when the build produces `.ko` files, for
 
 **Does it work on macOS / Windows?**
 Yes — natively for configs, source management and SSH workflows; for actual builds use **WSL2** (Windows) or the repo's **Docker image** (macOS). Full guide: [`docs/windows-macos.md`](docs/windows-macos.md).
+
+**Can I build my kernel on GitHub Actions?**
+Yes — copy [`.github/workflows/build-kernel.yml`](.github/workflows/build-kernel.yml) into your kernel repo. It installs forged, caches AOSP Clang + ccache, runs `forged build --ci` and uploads the flashable ZIP as an artifact (and publishes a release on tags). The `--ci` flag disables all prompts and writes `zip_path` / `outcome` outputs plus a Markdown build report to the run summary.
 
 ---
 

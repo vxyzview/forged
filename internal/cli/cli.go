@@ -98,6 +98,7 @@ type buildFlags struct {
 	sourceDepth    int
 	sourceDepthSet bool
 	defconfig      string
+	arch           string
 	jobs           int
 	noClean        bool
 	noPackage      bool
@@ -108,6 +109,11 @@ type buildFlags struct {
 	makeFlags      []string
 	extraEnv       []string
 	ccache         *bool
+	ci             bool
+	toolchainDir   string
+	// toolchainExtraPath appends entries to toolchain.extra_path so CI jobs
+	// can point at a pre-provisioned clang without a config file.
+	toolchainExtraPath []string
 }
 
 func newBuildCmd() *cobra.Command {
@@ -136,6 +142,7 @@ func newBuildCmd() *cobra.Command {
 	flags.IntVar(&f.sourceDepth, "source-depth", 1, "Clone depth (1=shallow, 0=full history)")
 	flags.Lookup("source-depth").NoOptDefVal = ""
 	flags.StringVarP(&f.defconfig, "defconfig", "d", "", "Defconfig name")
+	flags.StringVar(&f.arch, "arch", "", "Target architecture: arm64, arm, or x86_64 (default: arm64)")
 	flags.IntVarP(&f.jobs, "jobs", "j", -1, "Parallel jobs (0=auto)")
 	flags.BoolVar(&f.noClean, "no-clean", false, "Skip mrproper step")
 	flags.BoolVar(&f.noPackage, "no-package", false, "Skip AnyKernel3 packaging")
@@ -147,6 +154,9 @@ func newBuildCmd() *cobra.Command {
 	flags.StringArrayVarP(&f.extraEnv, "env", "E", nil, "Inject an env var, e.g. -E KBUILD_VERBOSE=1 (repeatable)")
 	flags.Bool("ccache", false, "Enable ccache")
 	flags.Bool("no-ccache", false, "Disable ccache")
+	flags.BoolVar(&f.ci, "ci", false, "CI mode: no interactive prompts, write results to GITHUB_OUTPUT + GITHUB_STEP_SUMMARY (auto-enabled on GitHub Actions)")
+	flags.StringVar(&f.toolchainDir, "toolchain-dir", "", "Toolchain storage directory (default: ~/.local/share/forged/toolchains; useful with the CI cache action)")
+	flags.StringSliceVar(&f.toolchainExtraPath, "toolchain-extra-path", nil, "Directory with a working clang (repeatable); skips the auto-download, useful for system-clang CI")
 
 	// Track explicit --source-depth so argparse-default semantics match the
 	// Python original: omitted flag must not clobber a config-set depth=0.
@@ -168,6 +178,8 @@ func sourceDepthWasSet() bool {
 func runBuild(ctx context.Context, f *buildFlags) error {
 	var cfg *config.BuildConfig
 
+	ciMode := f.ci || inGitHubActions()
+
 	switch {
 	case f.configPath != "":
 		loaded, err := config.Load(f.configPath)
@@ -181,6 +193,14 @@ func runBuild(ctx context.Context, f *buildFlags) error {
 			return err
 		}
 		cfg = w
+	case ciMode && (f.source != "" || f.sourceURL != ""):
+		// Flag-driven build: forge a config from the CLI flags so CI
+		// workflows don't need a checked-in config file.
+		cfg = config.New()
+	case ciMode:
+		// Never launch the interactive wizard in CI — stdin may be
+		// /dev/null, so fail loudly with a pointer at the docs.
+		return fmt.Errorf("no config supplied in --ci mode: pass --config <file> or --source/--source-url (see .github/workflows/build-kernel.yml template)")
 	default:
 		fmt.Println(boxWarn.Render(styleWarn.Bold(true).Render("  ▲  No Config  ") + "\n\n  No config supplied — launching interactive wizard."))
 		w, err := wizard.Run()
@@ -208,6 +228,17 @@ func runBuild(ctx context.Context, f *buildFlags) error {
 	}
 	if f.defconfig != "" {
 		cfg.KernelDefconfig = f.defconfig
+	}
+	if f.arch != "" {
+		cfg.Arch = f.arch
+		switch f.arch {
+		case "arm64":
+			cfg.Subarch = "arm64"
+		case "arm":
+			cfg.Subarch = "arm"
+		case "x86_64":
+			cfg.Subarch = "x86_64"
+		}
 	}
 	if f.anykernelSrc != "" {
 		switch f.anykernelSrc {
@@ -244,9 +275,28 @@ func runBuild(ctx context.Context, f *buildFlags) error {
 			cfg.ExtraEnv[strings.TrimSpace(pair)] = ""
 		}
 	}
+	// Point the auto-managed toolchain at a cacheable directory (used by
+	// the GitHub Actions template to persist AOSP Clang across runs).
+	if f.toolchainDir != "" {
+		cfg.ToolchainDir = f.toolchainDir
+	}
+	for _, p := range f.toolchainExtraPath {
+		if p != "" {
+			cfg.Toolchain.ExtraPath = append(cfg.Toolchain.ExtraPath, p)
+		}
+	}
 
 	if err := cfg.Validate(); err != nil {
 		return err
+	}
+
+	// CI mode is auto-enabled on GitHub Actions; the flag forces it
+	// anywhere (runner-less debugging, self-hosted scripted builds).
+	if ciMode {
+		ci := newCI(true)
+		ci.configName = f.configPath
+		return executeBuild(ctx, cfg, !f.noClean, !f.noPackage,
+			f.versionTag, f.anykernelDir, f.logFile, ci)
 	}
 
 	return executeBuild(ctx, cfg,
@@ -255,12 +305,32 @@ func runBuild(ctx context.Context, f *buildFlags) error {
 		f.versionTag,
 		f.anykernelDir,
 		f.logFile,
+		newCI(false),
 	)
+}
+
+// ciRun describes how much CI plumbing a build performs.
+type ciRun struct {
+	// enabled reports whether CI outputs are emitted.
+	enabled bool
+	// strict reports whether toolchain warnings fail the build instead of
+	// prompting. CI can never prompt — strict is the only sane default.
+	strict bool
+	// configName is echoed into the summary for traceability.
+	configName string
+}
+
+// newCI returns a ciRun for an interactive (false) or CI (true) build.
+func newCI(ci bool) *ciRun {
+	return &ciRun{enabled: ci, strict: ci}
 }
 
 // ── Build execution with live Bubble Tea TUI ─────────────────────────────────
 
-func executeBuild(ctx context.Context, cfg *config.BuildConfig, clean, doPackage bool, versionTag, anykernelDir, logFile string) error {
+func executeBuild(ctx context.Context, cfg *config.BuildConfig, clean, doPackage bool, versionTag, anykernelDir, logFile string, ci *ciRun) error {
+	if ci == nil {
+		ci = newCI(false)
+	}
 	buildStart := time.Now()
 
 	printConfigTable(cfg)
@@ -282,8 +352,21 @@ func executeBuild(ctx context.Context, cfg *config.BuildConfig, clean, doPackage
 	for _, w := range warnings {
 		fmt.Println(boxWarn.Render(styleWarn.Bold(true).Render("  ▲  Warning  ") + "\n\n  " + styleWarn.Render(w)))
 	}
-	if len(warnings) > 0 && !confirmDefault("Continue anyway?", false) {
-		return fmt.Errorf("aborted: toolchain issues must be resolved first")
+	switch {
+	case len(warnings) == 0:
+		// nothing to decide
+	case ci.strict:
+		// Never prompt in CI — stdin may be /dev/null. Missing tools are a
+		// hard error so the run fails loudly instead of producing a broken
+		// ZIP that someone downstream might flash.
+		for _, w := range warnings {
+			fmt.Fprintf(os.Stdout, "::warning title=forged::%s\n", strings.ReplaceAll(w, "\n", " "))
+		}
+		return fmt.Errorf("aborted: %d toolchain warning(s) in --ci mode; fix the environment (forged doctor) and retry", len(warnings))
+	default:
+		if !confirmDefault("Continue anyway?", false) {
+			return fmt.Errorf("aborted: toolchain issues must be resolved first")
+		}
 	}
 
 	// ── Live TUI build ──
@@ -305,7 +388,7 @@ func executeBuild(ctx context.Context, cfg *config.BuildConfig, clean, doPackage
 	}
 	if !hasTTY && !term.IsTerminal(int(os.Stdout.Fd())) && !term.IsTerminal(int(os.Stdin.Fd())) {
 		results, allLines := runNoTTY(ctx, b, steps)
-		return finishBuild(cfg, b, results, allLines, buildStart, doPackage, versionTag, anykernelDir, logFile)
+		return finishBuild(cfg, b, results, allLines, buildStart, doPackage, versionTag, anykernelDir, logFile, ci)
 	}
 
 	msgCh := make(chan tea.Msg, 1024)
@@ -334,7 +417,7 @@ func executeBuild(ctx context.Context, cfg *config.BuildConfig, clean, doPackage
 		return fmt.Errorf("unexpected TUI model type %T", finalModel)
 	}
 
-	return finishBuild(cfg, b, bm.Results(), bm.AllLines(), buildStart, doPackage, versionTag, anykernelDir, logFile)
+	return finishBuild(cfg, b, bm.Results(), bm.AllLines(), buildStart, doPackage, versionTag, anykernelDir, logFile, ci)
 }
 
 // runNoTTY streams build output as plain log lines (no Bubble Tea screen).
@@ -369,7 +452,10 @@ func runNoTTY(ctx context.Context, b *builder.KernelBuilder, steps []builder.Bui
 // finishBuild performs the shared post-build handling: issues log, results
 // table, AnyKernel3 packaging and the farewell banner. It is used by both the
 // TTY (Bubble Tea) and no-TTY (plain streaming) build paths.
-func finishBuild(cfg *config.BuildConfig, b *builder.KernelBuilder, results []builder.BuildResult, allLines []string, buildStart time.Time, doPackage bool, versionTag, anykernelDir, logFile string) error {
+func finishBuild(cfg *config.BuildConfig, b *builder.KernelBuilder, results []builder.BuildResult, allLines []string, buildStart time.Time, doPackage bool, versionTag, anykernelDir, logFile string, ci *ciRun) error {
+	if ci == nil {
+		ci = newCI(false)
+	}
 	// ── Issues log file (always written) ──
 	if logFile == "" {
 		sourceRoot := cfg.KernelSource
@@ -406,6 +492,12 @@ func finishBuild(cfg *config.BuildConfig, b *builder.KernelBuilder, results []bu
 		}
 		fmt.Printf("\n  %s  Re-run with %s to skip mrproper on retry\n\n",
 			styleSteel.Render("›"), styleSecondary.Render("--no-clean"))
+		if ci.enabled {
+			c := newCIOutputs()
+			c.setOutput("outcome", "failure")
+			runCIAnnotations(results, nil)
+			c.appendSummary(ciSummaryMarkdown(ci.configName, results, "", time.Since(buildStart)))
+		}
 		return fmt.Errorf("build failed")
 	}
 
@@ -454,8 +546,25 @@ func finishBuild(cfg *config.BuildConfig, b *builder.KernelBuilder, results []bu
 	fmt.Println()
 	fmt.Println(tui.RenderResultsTable(results, zipPath))
 
-	elapsed := time.Since(buildStart).Seconds()
-	banner.PrintFarewell(true, elapsed, cfg.ZipOutputDir)
+	elapsed := time.Since(buildStart)
+	if ci.enabled {
+		c := newCIOutputs()
+		c.setOutput("outcome", "success")
+		if zipPath != "" {
+			c.setOutput("zip_path", zipPath)
+			c.setOutput("zip_name", filepath.Base(zipPath))
+		}
+		if logFile != "" {
+			c.setOutput("log_path", logFile)
+		}
+		issues := tui.ExtractIssues(allLines)
+		var digest []string
+		digest = append(digest, issues.Errors...)
+		digest = append(digest, issues.Warnings...)
+		runCIAnnotations(results, digest)
+		c.appendSummary(ciSummaryMarkdown(ci.configName, results, zipPath, elapsed))
+	}
+	banner.PrintFarewell(true, elapsed.Seconds(), cfg.ZipOutputDir)
 	return nil
 }
 

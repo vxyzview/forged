@@ -1,0 +1,189 @@
+# forged — build your Android kernel on GitHub Actions
+#
+# Copy this file into YOUR kernel source repo as .github/workflows/build.yml,
+# then edit the `env:` block and the kernel_* inputs at the bottom.
+#
+# What it does
+#   1. Checks out your kernel source
+#   2. Installs forged (single static binary, ~15 MB) or builds it from source
+#   3. Caches the AOSP Clang toolchain + ccache so rebuilds take minutes
+#   4. Runs `forged build --ci` (no prompts, no TUI — plain streaming logs)
+#   5. Uploads the flashable AnyKernel3 ZIP as a workflow artifact
+#   6. (Tagged pushes only) attaches the ZIP to a GitHub Release
+#
+# forged docs: https://github.com/vxyzview/forged#readme
+name: Build kernel with forged
+
+on:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      defconfig:
+        description: "Defconfig to build (overrides KERNEL_DEFCONFIG)"
+        required: false
+        default: ""
+
+env:
+  # ── Edit these ──────────────────────────────────────────────────
+  KERNEL_DEFCONFIG: your_defconfig_defconfig # e.g. gki_defconfig
+  KERNEL_ARCH: arm64 # arm64 | arm | x86_64
+  AOSP_CLANG_VERSION: r584948b # forged default; pin yours here
+  CCACHE_SIZE: 5G
+  # Which forged release to install. Use a tag for reproducible builds.
+  FORGED_VERSION: v1.0.4
+  # ───────────────────────────────────────────────────────────────
+
+jobs:
+  build:
+    # Kernel toolchains are linux-x86_64 only — keep ubuntu-latest (x64).
+    # (Apple-Silicon arm64 runners cannot run the AOSP Clang prebuilts.)
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write # needed for the release step; harmless otherwise
+
+    # TIP: split the build into a matrix (one defconfig per job) like this:
+    #
+    #   strategy:
+    #     fail-fast: false
+    #     matrix:
+    #       include:
+    #         - defconfig: gki_defconfig
+    #           version_tag: gki
+    #         - defconfig: vendor_defconfig
+    #           version_tag: vendor
+    #
+    # …then replace every KERNEL_DEFCONFIG reference with
+    # ${{ matrix.defconfig }} and the --version-tag value with
+    # "ci-${{ matrix.version_tag }}-${GITHUB_SHA::8}".
+    # Each matrix job uploads its own ZIP artifact.
+
+    outputs:
+      zip_name: ${{ steps.kernel.outputs.zip_name }}
+      zip_path: ${{ steps.kernel.outputs.zip_path }}
+      outcome: ${{ steps.kernel.outputs.outcome }}
+
+    steps:
+      - name: Checkout kernel source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # ── Host build tools (flex/bison/bc/perl/openssl + LLVM binutils) ──
+      - name: Install host build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            bc bison build-essential ccache flex libelf-dev libssl-dev \
+            perl python3 llvm lld aria2 \
+            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
+
+      # ── forged ──────────────────────────────────────────────────
+      # Option A (fast): download the prebuilt release binary.
+      - name: Install forged
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/vxyzview/forged/main/install.sh \
+            | bash -s -- --version "${{ env.FORGED_VERSION }}"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      # Option B (from source — replace Option A if you track forged main):
+      # - name: Install forged from source
+      #   uses: actions/setup-go@v5
+      #   with:
+      #     go-version: "1.27"
+      #     cache: true
+      # - name: Build forged
+      #   run: |
+      #     git clone --depth 1 https://github.com/vxyzview/forged.git /tmp/forged
+      #     cd /tmp/forged && go build -o /usr/local/bin/forged ./cmd/forged
+
+      # ── Caches: AOSP Clang (~1 GB) + ccache ────────────────────
+      - name: Cache AOSP Clang toolchain
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/forged/toolchains
+          key: aosp-clang-${{ env.AOSP_CLANG_VERSION }}-v1
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-${{ env.KERNEL_DEFCONFIG }}-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            ccache-${{ env.KERNEL_DEFCONFIG }}-${{ github.ref_name }}-
+            ccache-${{ env.KERNEL_DEFCONFIG }}-
+
+      # ── Toolchain + sanity check ────────────────────────────────
+      - name: Set up AOSP Clang
+        # Never prompt for git credentials in CI (private mirrors need a
+        # token — see the private-kernel comment at the bottom of this file).
+        env:
+          GIT_TERMINAL_PROMPT: "0"
+          FORGED_CI_NO_PROMPT: "1"
+        run: |
+          forged setup-toolchain \
+            --preset aosp-clang \
+            --version "${{ env.AOSP_CLANG_VERSION }}" \
+            --install-cross-compilers || true
+          forged doctor || true
+
+      # ── Build ───────────────────────────────────────────────────
+      - name: Build kernel with forged
+        id: kernel
+        run: |
+          DEFCONFIG="${{ inputs.defconfig }}"
+          if [ -z "$DEFCONFIG" ]; then DEFCONFIG="${{ env.KERNEL_DEFCONFIG }}"; fi
+          forged build --ci \
+            --source "$GITHUB_WORKSPACE" \
+            --defconfig "$DEFCONFIG" \
+            --arch "${{ env.KERNEL_ARCH }}" \
+            --version-tag "ci-${GITHUB_SHA::8}"
+
+      # ccache stats end up in the log for tuning (-j / size).
+      - name: Show ccache stats
+        if: always()
+        run: ccache -s || true
+
+      # ── Artifacts ───────────────────────────────────────────────
+      - name: Upload flashable ZIP
+        if: steps.kernel.outputs.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.kernel.outputs.zip_name }}
+          path: ${{ steps.kernel.outputs.zip_path }}
+          if-no-files-found: error
+          retention-days: 14
+
+      # ── Release on tags (push v1.2.3 → release v1.2.3 + ZIP) ────
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') && steps.kernel.outputs.outcome == 'success'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.kernel.outputs.zip_path }}
+          generate_release_notes: true
+
+# ── Notes ──────────────────────────────────────────────────────────────
+#
+# PRIVATE KERNEL SOURCES
+#   If your kernel source lives in a private repo, add a checkout step with
+#   a token instead of relying on --source-url:
+#
+#     - uses: actions/checkout@v4
+#       with:
+#         repository: your-org/your-kernel
+#         ref: your-branch
+#         token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+#         fetch-depth: 1
+#
+#   forged then only sees a plain directory (--source "$GITHUB_WORKSPACE").
+#
+# DEVICE TREE / DTBO
+#   Many devices need `--make-flag` additions, e.g. for QCOM kernels:
+#
+#     forged build --ci ... -F DTC_EXT=dtc -F CONFIG_BUILD_ARM64_DT_OVERLAY=y
+#
+#   Pass any extra make vars via repeated -F/--make-flag, or env vars via
+#   repeated -E/--env (e.g. -E KBUILD_BUILD_VERSION=1234).
