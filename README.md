@@ -28,21 +28,6 @@
 
 </div>
 
-```text
-$ forged build
-
-  ▌ FORGE
- ──────────────────────────────────────────
-  ✓ mrproper      1.2s
-  ✓ defconfig     0.4s
-  ● build         ████████░░░░░░░░  12m31s
-    CC      drivers/gpio/gpio-x.o
-    CC      drivers/clk/qcom/clk-rpmh.o
-    LD      vmlinux.o
-
-  ✓ packaged   Forged-v1.0-20260907-183001.zip  (34.2 MiB)  →  releases/
-```
-
 ---
 
 ## Why
@@ -119,9 +104,7 @@ docker run --rm -it -v "$PWD/my-kernel":/work -w /work forged
 ---
 
 <div align="center">
-
-<img src="docs/demo.gif" alt="forged — build an Android kernel end-to-end in one command" width="820">
-
+  <img src="docs/demo.gif" alt="forged demo — doctor, live build TUI, and the flashable ZIP, all from one command" width="840">
 </div>
 
 ---
