@@ -1,44 +1,16 @@
-# ── Python ────────────────────────────────────────────────────────────────────
-__pycache__/
-*.py[cod]
-*$py.class
-*.pyo
-*.pyd
-*.so
+# ── Go ────────────────────────────────────────────────────────────────────────
+# Compiled binary produced by `go build` / `go install`
+/forged
+forged
+*.exe
+*.test
+*.out
+*.prof
 
-# ── Distribution / packaging ──────────────────────────────────────────────────
-dist/
-build/
-*.egg-info/
-*.egg
-MANIFEST
-.eggs/
-wheels/
-pip-wheel-metadata/
-share/python-wheels/
-
-# ── Virtual environments ──────────────────────────────────────────────────────
-.venv/
-venv/
-env/
-ENV/
-.env
-
-# ── Testing & coverage ────────────────────────────────────────────────────────
-.pytest_cache/
-.coverage
-.coverage.*
-coverage.xml
-htmlcov/
-*.cover
-.tox/
-.nox/
-
-# ── Linting / type-checking ───────────────────────────────────────────────────
-.ruff_cache/
-.mypy_cache/
-.dmypy.json
-dmypy.json
+# ── Go workspace / tooling ────────────────────────────────────────────────────
+vendor/
+go.work
+go.work.sum
 
 # ── Build artefacts ───────────────────────────────────────────────────────────
 # Kernel build output
@@ -48,7 +20,7 @@ out/
 releases/
 
 # Toolchains managed by forged setup-toolchain
-# (stored in ~/.local/share/kernel-builder/ by default, but may be local)
+# (stored in ~/.local/share/forged/ by default, but may be local)
 toolchains/
 
 # ── AnyKernel3 staging ────────────────────────────────────────────────────────

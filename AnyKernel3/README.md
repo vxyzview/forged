@@ -12,7 +12,7 @@ cp /tmp/ak3/tools/ak3-core.sh tools/
 cp /tmp/ak3/tools/magiskboot tools/   # if needed
 ```
 
-The `kernel-builder` tool will populate this directory automatically when
+The `forged` tool will populate this directory automatically when
 packaging. You only need to provide the real `ak3-core.sh` and any optional
 ramdisk overlays or patches.
 

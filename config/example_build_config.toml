@@ -70,8 +70,8 @@ use_llvm_binutils    = true
 auto_clone           = true
 
 # Toolchain auto-download directory (only used when auto_clone = true).
-# Defaults to ~/.local/share/kernel-builder/toolchains when left empty.
-# toolchain_dir = "~/.local/share/kernel-builder/toolchains"
+# Defaults to ~/.local/share/forged/toolchains when left empty.
+# toolchain_dir = "~/.local/share/forged/toolchains"
 
 # If you prefer to manage the toolchain yourself, set auto_clone = false and
 # point extra_path at your clang/bin directory:

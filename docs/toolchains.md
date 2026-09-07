@@ -28,7 +28,8 @@ FORGED supports two toolchain presets for building Android kernels.
 
 The recommended preset for Android kernel builds.  Downloads the official AOSP
 prebuilt Clang tarball from `android.googlesource.com` using **aria2** for fast
-multi-connection transfers (falls back to urllib when aria2 is not installed).
+multi-connection transfers (falls back to Go's built-in `net/http` when aria2
+is not installed).
 
 Downloads are cached on disk — subsequent builds skip the download entirely.
 
@@ -70,7 +71,7 @@ https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archiv
 ### Storage layout
 
 ```
-~/.local/share/kernel-builder/toolchains/
+~/.local/share/forged/toolchains/
 └── aosp-clang/
     └── clang-r584948b/
         ├── bin/
@@ -91,8 +92,8 @@ interactive wizard.
 If you prefer to manage the toolchain yourself:
 
 ```sh
-mkdir -p ~/.local/share/kernel-builder/toolchains/aosp-clang
-cd ~/.local/share/kernel-builder/toolchains/aosp-clang
+mkdir -p ~/.local/share/forged/toolchains/aosp-clang
+cd ~/.local/share/forged/toolchains/aosp-clang
 aria2c --split=16 --max-connection-per-server=16 \
   "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main-kernel/clang-r584948b.tar.gz" \
   -o clang-r584948b.tar.gz
@@ -105,7 +106,7 @@ Then in your build config:
 [toolchain]
 preset     = "aosp-clang"
 auto_clone = false
-extra_path = ["~/.local/share/kernel-builder/toolchains/aosp-clang/clang-r584948b/bin"]
+extra_path = ["~/.local/share/forged/toolchains/aosp-clang/clang-r584948b/bin"]
 ```
 
 Or in JSON:
@@ -116,7 +117,7 @@ Or in JSON:
   "aosp_clang_version": "r584948b",
   "auto_clone": false,
   "extra_path": [
-    "~/.local/share/kernel-builder/toolchains/aosp-clang/clang-r584948b/bin"
+    "~/.local/share/forged/toolchains/aosp-clang/clang-r584948b/bin"
   ]
 }
 ```
