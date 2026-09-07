@@ -375,11 +375,67 @@ func Run() (*config.BuildConfig, error) {
 
 	// ── AnyKernel3 ───────────────────────────────────────────────────────────
 	var (
+		akSource   = config.AK3SourceOsm0sis
+		akRepo     = ""
+		akBranch   string
 		kernelName = "Forged"
 		block      = "/dev/block/by-name/boot"
 		slotDevice bool
 		devices    string
 	)
+
+	akSourceDesc := "Where should AnyKernel3 come from?"
+	if err := RunForm(huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("AnyKernel3 source").
+				Description(akSourceDesc).
+				Options(
+					huh.NewOption("Upstream — clone osm0sis/AnyKernel3 (recommended)", config.AK3SourceOsm0sis),
+					huh.NewOption("Your fork — clone a git URL", config.AK3SourceGit),
+					huh.NewOption("Local checkout — copy from disk", config.AK3SourceLocal),
+					huh.NewOption("Stub — bare skeleton, dry-run only", config.AK3SourceStub),
+				).
+				Value(&akSource),
+		),
+	)); err != nil {
+		return nil, err
+	}
+
+	if akSource == config.AK3SourceGit || akSource == config.AK3SourceLocal {
+		if err := RunForm(huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().
+					Title(func() string {
+						if akSource == config.AK3SourceGit {
+							return "AnyKernel3 git URL"
+						}
+						return "AnyKernel3 local path"
+					}()).
+					Description(func() string {
+						if akSource == config.AK3SourceGit {
+							return "Your AnyKernel3 fork with device tweaks"
+						}
+						return "Path to an existing AnyKernel3 checkout"
+					}()).
+					Value(&akRepo),
+			),
+		)); err != nil {
+			return nil, err
+		}
+	}
+	if akSource == config.AK3SourceGit {
+		if err := RunForm(huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().
+					Title("Branch / tag").
+					Description("Blank = remote default branch").
+					Value(&akBranch),
+			),
+		)); err != nil {
+			return nil, err
+		}
+	}
 
 	if err := RunForm(huh.NewForm(
 		huh.NewGroup(
@@ -403,6 +459,11 @@ func Run() (*config.BuildConfig, error) {
 	}
 
 	ak3 := config.NewAnyKernel3Config()
+	ak3.Source = akSource
+	if s := strings.TrimSpace(akRepo); s != "" {
+		ak3.RepoURL = s
+	}
+	ak3.RepoBranch = strings.TrimSpace(akBranch)
 	if s := strings.TrimSpace(kernelName); s != "" {
 		ak3.KernelName = s
 	}
@@ -421,6 +482,16 @@ func Run() (*config.BuildConfig, error) {
 		ak3.DoDevicecheck = 1
 	} else {
 		ak3.DoDevicecheck = 0
+	}
+	switch akSource {
+	case config.AK3SourceOsm0sis:
+		fmt.Printf("\n  ✦  AnyKernel3 will be cloned from %s on first build.\n\n", ak3.RepoURL)
+	case config.AK3SourceGit:
+		fmt.Printf("\n  ✦  AnyKernel3 will be cloned from %s on first build.\n\n", ak3.RepoURL)
+	case config.AK3SourceLocal:
+		fmt.Printf("\n  ✦  AnyKernel3 will be copied from %s on first build.\n\n", ak3.RepoURL)
+	default:
+		fmt.Printf("\n  ▲  Stub ak3-core.sh — ZIPs are dry-run only, not flashable.\n\n")
 	}
 	cfg.Anykernel3 = ak3
 

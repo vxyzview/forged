@@ -90,6 +90,20 @@ sloppiness          = "time_macros,include_file_mtime,file_stat_matches,pch_defi
 
 [anykernel3]
 anykernel_dir       = "AnyKernel3"
+
+# Where the AnyKernel3 staging tree comes from. One of:
+#   osm0sis — clone the upstream repo (default, recommended)
+#   git     — clone your own fork (set repo_url / repo_branch)
+#   local   — copy an existing checkout (repo_url = local path)
+#   stub    — keep the bare skeleton; ZIPs build but are NOT flashable
+source              = "osm0sis"
+
+# Used by the "git" and "local" source modes. Defaults to the upstream
+# repo for "osm0sis" when left empty.
+# repo_url            = "https://github.com/osm0sis/AnyKernel3"
+# repo_branch         = ""
+# repo_depth          = 1
+
 kernel_name         = "Forged"
 block               = "/dev/block/by-name/boot"
 is_slot_device      = 0

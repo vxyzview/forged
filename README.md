@@ -107,6 +107,8 @@ forged build -c build_config.toml --no-clean --ccache   # incremental rebuild
 
 **`forged config`** — wizard, saves a config · **`forged info`** — print a config summary · **`forged ccache-stats`** — cache statistics, `--zero` to reset
 
+`forged build` also takes `--anykernel-source MODE` (`osm0sis` / `git` / `local` / `stub`) to override the staging source per run.
+
 ---
 
 ## Config
@@ -123,9 +125,11 @@ aosp_clang_version = "r584948b"
 auto_clone         = true
 
 [anykernel3]
-kernel_name  = "Forged"
-block        = "/dev/block/by-name/boot"
-device_names = ["your_device"]
+source         = "osm0sis"       # osm0sis | git | local | stub
+# repo_url     = "https://github.com/you/AnyKernel3-fork"   # git / local modes
+kernel_name    = "Forged"
+block          = "/dev/block/by-name/boot"
+device_names   = ["your_device"]
 
 [ccache]
 enabled  = true

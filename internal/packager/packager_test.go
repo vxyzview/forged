@@ -190,3 +190,126 @@ func TestZipIsStableOnFailure(t *testing.T) {
 		}
 	}
 }
+
+func TestDefaultSourceIsOsm0sis(t *testing.T) {
+	cfg := config.New()
+	if cfg.Anykernel3.Source != config.AK3SourceOsm0sis {
+		t.Errorf("default source = %q, want %q", cfg.Anykernel3.Source, config.AK3SourceOsm0sis)
+	}
+	if cfg.Anykernel3.RepoURL != config.DefaultAnyKernel3Repo {
+		t.Errorf("default repo_url = %q, want %q", cfg.Anykernel3.RepoURL, config.DefaultAnyKernel3Repo)
+	}
+}
+
+func TestEnsureSourceInvalidMode(t *testing.T) {
+	cfg := config.New()
+	cfg.Anykernel3.Source = "carrier-pigeon"
+	p := New(cfg, filepath.Join(t.TempDir(), "AnyKernel3"))
+	if err := p.EnsureSource(); err == nil || !strings.Contains(err.Error(), "unknown anykernel3.source") {
+		t.Errorf("expected unknown-source error, got %v", err)
+	}
+}
+
+func TestEnsureSourceLocalCopiesCheckout(t *testing.T) {
+	src := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(src, "tools"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	coreBody := "#!/usr/bin/env bash\n# real ak3 core from local checkout\n"
+	if err := os.WriteFile(filepath.Join(src, "tools", "ak3-core.sh"), []byte(coreBody), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(src, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, ".git", "config"), []byte("[core]"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := config.New()
+	cfg.Anykernel3.Source = config.AK3SourceLocal
+	cfg.Anykernel3.RepoURL = src
+	p := New(cfg, filepath.Join(t.TempDir(), "AnyKernel3"))
+	if err := p.EnsureSource(); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(p.AnykernelBase, "tools", "ak3-core.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != coreBody {
+		t.Errorf("local checkout must be copied verbatim, got %q", got)
+	}
+	if fileExists(filepath.Join(p.AnykernelBase, ".git", "config")) {
+		t.Error(".git must not be copied into staging")
+	}
+}
+
+func TestEnsureSourceLocalMissingDir(t *testing.T) {
+	cfg := config.New()
+	cfg.Anykernel3.Source = config.AK3SourceLocal
+	cfg.Anykernel3.RepoURL = filepath.Join(t.TempDir(), "does-not-exist")
+	p := New(cfg, filepath.Join(t.TempDir(), "AnyKernel3"))
+	if err := p.EnsureSource(); err == nil || !strings.Contains(err.Error(), "does not exist") {
+		t.Errorf("expected missing-dir error, got %v", err)
+	}
+}
+
+func TestPrepareUsesLocalSource(t *testing.T) {
+	src := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(src, "tools"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	coreBody := "# real local ak3 core\n"
+	if err := os.WriteFile(filepath.Join(src, "tools", "ak3-core.sh"), []byte(coreBody), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := config.New()
+	cfg.Anykernel3.KernelName = "LocalKernel"
+	cfg.Anykernel3.Source = config.AK3SourceLocal
+	cfg.Anykernel3.RepoURL = src
+	p := New(cfg, filepath.Join(t.TempDir(), "AnyKernel3"))
+	image := filepath.Join(t.TempDir(), "Image")
+	if err := os.WriteFile(image, make([]byte, 32), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := p.Prepare(image, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(p.AnykernelBase, "tools", "ak3-core.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != coreBody {
+		t.Error("local ak3-core.sh must survive Prepare untouched")
+	}
+	if !fileExists(filepath.Join(p.AnykernelBase, "anykernel.sh")) {
+		t.Error("anykernel.sh must still be rendered")
+	}
+}
+
+func TestExistingRealCheckoutIsReused(t *testing.T) {
+	dst := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dst, "AnyKernel3", "tools"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	coreBody := "# pre-existing real core\n"
+	if err := os.WriteFile(filepath.Join(dst, "AnyKernel3", "tools", "ak3-core.sh"), []byte(coreBody), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := config.New()
+	cfg.Anykernel3.Source = config.AK3SourceOsm0sis
+	p := New(cfg, filepath.Join(dst, "AnyKernel3"))
+	if err := p.EnsureSource(); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dst, "AnyKernel3", "tools", "ak3-core.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != coreBody {
+		t.Error("populated real checkout must be reused, not re-cloned")
+	}
+}

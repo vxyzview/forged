@@ -8,6 +8,7 @@ package packager
 import (
 	"archive/zip"
 	"compress/flate"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	"github.com/vxyzview/forged/internal/config"
+	"github.com/vxyzview/forged/internal/toolchain"
 )
 
 // anykernelShTemplate is the AnyKernel3 ramdisk-mod script written into the
@@ -108,11 +110,31 @@ type Packager struct {
 	cfg           *config.BuildConfig
 	ak3           config.AnyKernel3Config
 	AnykernelBase string
+	progress      Progress
 }
+
+// Progress receives log lines during long operations (clone/download).
+type Progress func(line string)
+
+// nopProgress is used when no callback is supplied.
+func nopProgress(string) {}
 
 // New creates a Packager for the given AnyKernel3 staging directory.
 func New(cfg *config.BuildConfig, anykernelBase string) *Packager {
 	return &Packager{cfg: cfg, ak3: cfg.Anykernel3, AnykernelBase: anykernelBase}
+}
+
+// NewWithProgress creates a Packager that logs long operations via progress.
+func NewWithProgress(cfg *config.BuildConfig, anykernelBase string, progress Progress) *Packager {
+	p := New(cfg, anykernelBase)
+	p.progress = progress
+	return p
+}
+
+func (p *Packager) log(line string) {
+	if p.progress != nil {
+		p.progress(line)
+	}
 }
 
 // renderAnykernelSh fills the anykernel.sh template from the config.
@@ -142,7 +164,13 @@ func (p *Packager) renderAnykernelSh() string {
 	return replacer.Replace(anykernelShTemplate)
 }
 
-// ensureStructure creates required AnyKernel3 directories and stub files.
+// ensureStructure creates required AnyKernel3 directories and forged's
+// generated files (anykernel.sh comes from Prepare; update-binary and
+// updater-script are written here when missing).
+//
+// When the staging directory holds a real AnyKernel3 checkout (cloned or
+// local), its own updater artefacts win: nothing already present is
+// overwritten. Only the stub ak3-core.sh is written into a bare skeleton.
 func (p *Packager) ensureStructure() error {
 	dirs := []string{
 		filepath.Join(p.AnykernelBase, "tools"),
@@ -159,6 +187,8 @@ func (p *Packager) ensureStructure() error {
 
 	coreSh := filepath.Join(p.AnykernelBase, "tools", "ak3-core.sh")
 	if !fileExists(coreSh) {
+		p.log("[ak3] No ak3-core.sh found — writing stub (dry-run packaging only).\n" +
+			"      Set anykernel3.source = \"osm0sis\" (or \"git\"/\"local\") for a real flashable ZIP.")
 		if err := os.WriteFile(coreSh, []byte(ak3CoreStub), 0o755); err != nil {
 			return err
 		}
@@ -211,8 +241,125 @@ func fileExists(p string) bool {
 	return err == nil && !info.IsDir()
 }
 
+// ak3LooksPopulated reports whether the staging directory already contains a
+// real AnyKernel3 checkout (anykernel.sh or the real ak3-core.sh present).
+func ak3LooksPopulated(base string) bool {
+	if fileExists(filepath.Join(base, "tools", "ak3-core.sh")) {
+		// Present, but the stub is not a real AnyKernel3 core.
+		data, err := os.ReadFile(filepath.Join(base, "tools", "ak3-core.sh"))
+		if err == nil && strings.Contains(string(data), "AnyKernel3 core stub") {
+			return false
+		}
+		return true
+	}
+	return fileExists(filepath.Join(base, "anykernel.sh")) ||
+		fileExists(filepath.Join(base, "META-INF", "com", "google", "android", "update-binary"))
+}
+
+// EnsureSource makes sure the staging directory holds a usable AnyKernel3
+// tree according to the configured source mode:
+//
+//	osm0sis — clone/pull github.com/osm0sis/AnyKernel3 (upstream)
+//	git     — clone/pull cfg.Anykernel3.RepoURL (your own fork)
+//	local   — copy an existing AnyKernel3 checkout from RepoURL (path)
+//	stub    — keep the committed skeleton with a stub ak3-core.sh
+//
+// Templates (anykernel.sh / update-binary) are (re)rendered later by
+// Prepare; an already-populated real tree is left untouched.
+func (p *Packager) EnsureSource() error {
+	base := p.AnykernelBase
+	mode := p.ak3.Source
+	if mode == "" {
+		mode = config.AK3SourceOsm0sis
+	}
+
+	switch mode {
+	case config.AK3SourceStub:
+		// Committed skeleton — nothing to fetch.
+		return nil
+
+	case config.AK3SourceOsm0sis, config.AK3SourceGit:
+		repo := p.ak3.RepoURL
+		if mode == config.AK3SourceOsm0sis && repo == "" {
+			repo = config.DefaultAnyKernel3Repo
+		}
+		if repo == "" {
+			return fmt.Errorf("anykernel3.source = %q but anykernel3.repo_url is empty", mode)
+		}
+		if ak3LooksPopulated(base) {
+			// Already have a real tree — try a fast refresh, ignore failures.
+			if _, err := os.Stat(filepath.Join(base, ".git")); err == nil {
+				p.log("[ak3] AnyKernel3 already present — pulling latest …")
+				_ = toolchain.Run([]string{"git", "-C", base, "pull", "--ff-only"}, "", nil)
+			} else {
+				p.log(fmt.Sprintf("[ak3] AnyKernel3 already present at %s — reusing.", base))
+			}
+			return nil
+		}
+		p.log(fmt.Sprintf("[ak3] Fetching AnyKernel3 from %s (mode: %s) …", repo, mode))
+		parent := filepath.Dir(base)
+		if err := os.MkdirAll(parent, 0o755); err != nil {
+			return err
+		}
+		if _, err := toolchain.CloneKernelSource(context.Background(), repo, base, p.ak3.RepoBranch, p.ak3.RepoDepth, p.log); err != nil {
+			return fmt.Errorf("cloning AnyKernel3 failed: %w", err)
+		}
+		return nil
+
+	case config.AK3SourceLocal:
+		src := p.ak3.RepoURL
+		if src == "" {
+			return fmt.Errorf("anykernel3.source = \"local\" but anykernel3.repo_url must point at your AnyKernel3 checkout")
+		}
+		src = config.ExpandPath(src)
+		if fi, err := os.Stat(src); err != nil || !fi.IsDir() {
+			return fmt.Errorf("anykernel3 local source %q does not exist", src)
+		}
+		// Copy the local checkout into staging, preserving tools/ and
+		// META-INF/, skipping VCS noise. Overwrites templates only.
+		p.log(fmt.Sprintf("[ak3] Copying AnyKernel3 from %s …", src))
+		return copyTree(src, base)
+
+	default:
+		return fmt.Errorf("unknown anykernel3.source %q (valid: %v)", mode, config.AnyKernel3SourceModes)
+	}
+}
+
+// copyTree recursively copies src into dst, skipping .git directories and
+// compiled kernel artefacts that never belong in a fresh staging area.
+func copyTree(src, dst string) error {
+	skip := map[string]bool{".git": true, "out": true, "releases": true, "AnyKernel3": true}
+	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			if skip[info.Name()] && path != src {
+				return filepath.SkipDir
+			}
+			rel, err := filepath.Rel(src, path)
+			if err != nil {
+				return err
+			}
+			return os.MkdirAll(filepath.Join(dst, rel), 0o755)
+		}
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+		return copyFile(path, filepath.Join(dst, rel))
+	})
+}
+
 // Prepare copies artefacts into the AnyKernel3 staging directory.
+//
+// It first resolves the staging source (clone/copy per anykernel3.source),
+// then (re)renders forged's own templates — anykernel.sh, update-binary,
+// updater-script — leaving upstream's ak3-core.sh and tools/ untouched.
 func (p *Packager) Prepare(kernelImage string, dtbFiles, moduleFiles []string) error {
+	if err := p.EnsureSource(); err != nil {
+		return err
+	}
 	if err := p.ensureStructure(); err != nil {
 		return err
 	}

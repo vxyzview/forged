@@ -24,10 +24,10 @@ releases/
 toolchains/
 
 # ── AnyKernel3 staging ────────────────────────────────────────────────────────
-# Keep the AnyKernel3/ directory skeleton, but ignore generated/copied files
-AnyKernel3/tools/ak3-core.sh
-AnyKernel3/tools/magiskboot
-AnyKernel3/tools/busybox
+# The staging area is populated per-build from anykernel3.source
+# (osm0sis clone, git fork, local checkout, or stub skeleton).
+# Ignore everything generated — only the committed skeleton stays tracked.
+AnyKernel3/tools/
 AnyKernel3/modules/
 AnyKernel3/patch/
 AnyKernel3/ramdisk/
@@ -35,8 +35,9 @@ AnyKernel3/anykernel.sh
 AnyKernel3/Image*
 AnyKernel3/zImage*
 AnyKernel3/dtb/
-AnyKernel3/META-INF/com/google/android/update-binary
-AnyKernel3/META-INF/com/google/android/updater-script
+AnyKernel3/META-INF/
+!AnyKernel3/README.md
+!AnyKernel3/.gitkeep
 
 # ── Editor & OS ───────────────────────────────────────────────────────────────
 .idea/

@@ -137,6 +137,10 @@ func NewCcacheConfig() CcacheConfig {
 // AnyKernel3Config holds AnyKernel3 packaging settings.
 type AnyKernel3Config struct {
 	AnykernelDir         string   `json:"anykernel_dir" toml:"anykernel_dir"`
+	Source               string   `json:"source" toml:"source"`
+	RepoURL              string   `json:"repo_url" toml:"repo_url"`
+	RepoBranch           string   `json:"repo_branch" toml:"repo_branch"`
+	RepoDepth            int      `json:"repo_depth" toml:"repo_depth"`
 	KernelName           string   `json:"kernel_name" toml:"kernel_name"`
 	Block                string   `json:"block" toml:"block"`
 	IsSlotDevice         int      `json:"is_slot_device" toml:"is_slot_device"`
@@ -148,10 +152,35 @@ type AnyKernel3Config struct {
 	DeviceNames          []string `json:"device_names" toml:"device_names"`
 }
 
+// AnyKernel3 source modes.
+const (
+	// AK3SourceStub keeps the committed skeleton: forged generates
+	// anykernel.sh / update-binary and a stub ak3-core.sh. Fine for dry
+	// runs; a real flash needs a real ak3-core.sh.
+	AK3SourceStub = "stub"
+	// AK3SourceOsm0sis clones github.com/osm0sis/AnyKernel3 (upstream).
+	AK3SourceOsm0sis = "osm0sis"
+	// AK3SourceGit clones an arbitrary AnyKernel3 git repository
+	// (your own fork with device tweaks, a kernel-specific variant, ...).
+	AK3SourceGit = "git"
+	// AK3SourceLocal uses an existing AnyKernel3 checkout on disk.
+	AK3SourceLocal = "local"
+)
+
+// DefaultAnyKernel3Repo is the upstream AnyKernel3 repository.
+const DefaultAnyKernel3Repo = "https://github.com/osm0sis/AnyKernel3"
+
+// AnyKernel3SourceModes lists the source modes in display order.
+var AnyKernel3SourceModes = []string{AK3SourceOsm0sis, AK3SourceGit, AK3SourceLocal, AK3SourceStub}
+
 // NewAnyKernel3Config returns the default AnyKernel3 settings.
 func NewAnyKernel3Config() AnyKernel3Config {
 	return AnyKernel3Config{
 		AnykernelDir:         "AnyKernel3",
+		Source:               AK3SourceOsm0sis,
+		RepoURL:              DefaultAnyKernel3Repo,
+		RepoBranch:           "",
+		RepoDepth:            1,
 		KernelName:           "kernel",
 		Block:                "/dev/block/by-name/boot",
 		IsSlotDevice:         0,

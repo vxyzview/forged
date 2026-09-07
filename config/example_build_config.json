@@ -30,6 +30,10 @@
   },
   "anykernel3": {
     "anykernel_dir": "AnyKernel3",
+    "source": "osm0sis",
+    "repo_url": "",
+    "repo_branch": "",
+    "repo_depth": 1,
     "kernel_name": "KernelBuilder",
     "block": "/dev/block/by-name/boot",
     "is_slot_device": 0,

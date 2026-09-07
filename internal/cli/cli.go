@@ -99,6 +99,7 @@ type buildFlags struct {
 	noPackage      bool
 	versionTag     string
 	anykernelDir   string
+	anykernelSrc   string
 	logFile        string
 	makeFlags      []string
 	extraEnv       []string
@@ -136,6 +137,7 @@ func newBuildCmd() *cobra.Command {
 	flags.BoolVar(&f.noPackage, "no-package", false, "Skip AnyKernel3 packaging")
 	flags.StringVar(&f.versionTag, "version-tag", "", "Version tag appended to ZIP name")
 	flags.StringVar(&f.anykernelDir, "anykernel-dir", "", "Path to AnyKernel3 directory")
+	flags.StringVar(&f.anykernelSrc, "anykernel-source", "", "AnyKernel3 source: osm0sis, git, local, or stub")
 	flags.StringVar(&f.logFile, "log-file", "", "Write errors+warnings here (default: auto-generated under <output_dir>/logs/)")
 	flags.StringArrayVarP(&f.makeFlags, "make-flag", "F", nil, "Append a make variable, e.g. -F LLVM=1 (repeatable)")
 	flags.StringArrayVarP(&f.extraEnv, "env", "E", nil, "Inject an env var, e.g. -E KBUILD_VERBOSE=1 (repeatable)")
@@ -202,6 +204,17 @@ func runBuild(ctx context.Context, f *buildFlags) error {
 	}
 	if f.defconfig != "" {
 		cfg.KernelDefconfig = f.defconfig
+	}
+	if f.anykernelSrc != "" {
+		switch f.anykernelSrc {
+		case config.AK3SourceOsm0sis, config.AK3SourceGit, config.AK3SourceLocal, config.AK3SourceStub:
+			cfg.Anykernel3.Source = f.anykernelSrc
+		default:
+			return fmt.Errorf("invalid --anykernel-source %q: must be one of %v", f.anykernelSrc, config.AnyKernel3SourceModes)
+		}
+		if f.anykernelSrc == config.AK3SourceOsm0sis && cfg.Anykernel3.RepoURL == "" {
+			cfg.Anykernel3.RepoURL = config.DefaultAnyKernel3Repo
+		}
 	}
 	if f.jobs >= 0 {
 		cfg.Jobs = f.jobs
@@ -399,7 +412,7 @@ func finishBuild(cfg *config.BuildConfig, b *builder.KernelBuilder, results []bu
 		if ak3Dir == "" {
 			ak3Dir = cfg.Anykernel3.AnykernelDir
 		}
-		p := packager.New(cfg, ak3Dir)
+		p := packager.NewWithProgress(cfg, ak3Dir, func(line string) { info(line) })
 
 		image := b.FindKernelImage()
 		if image == "" {
@@ -586,6 +599,13 @@ func printConfigTable(cfg *config.BuildConfig) {
 	if cfg.Anykernel3.IsSlotDevice != 0 {
 		slot = styleOK.Render("yes")
 	}
+	ak3Source := cfg.Anykernel3.Source
+	if ak3Source == "" {
+		ak3Source = config.AK3SourceOsm0sis
+	}
+	if repoURL := strings.TrimSpace(cfg.Anykernel3.RepoURL); repoURL != "" {
+		ak3Source += styleDim.Render("  ←  " + repoURL)
+	}
 
 	rows := []struct{ k, v string }{
 		{"Kernel source", val(cfg.KernelSource)},
@@ -602,6 +622,7 @@ func printConfigTable(cfg *config.BuildConfig) {
 		{"Cross compile", cfg.Toolchain.CrossCompile},
 		{"ccache", ccacheStatus},
 		{"AK3 kernel name", styleSecondary.Render(cfg.Anykernel3.KernelName)},
+		{"AK3 source", styleSecondary.Render(ak3Source)},
 		{"AK3 block", cfg.Anykernel3.Block},
 		{"AK3 devices", devices},
 		{"AK3 slot device", slot},
