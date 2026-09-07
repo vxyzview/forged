@@ -1,0 +1,145 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.goos }}-${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux — where kernel builds actually happen
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: linux
+            goarch: "386"
+          - goos: linux
+            goarch: arm
+            goarm: "7"
+          # macOS — host-side config/wizard/info use
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          # Windows — host-side config/wizard/info use
+          - goos: windows
+            goarch: amd64
+          - goos: windows
+            goarch: arm64
+
+    env:
+      GOOS: ${{ matrix.goos }}
+      GOARCH: ${{ matrix.goarch }}
+      GOARM: ${{ matrix.goarm }}
+      CGO_ENABLED: "0"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache: true
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build
+        run: |
+          EXT=""
+          if [ "${{ matrix.goos }}" = "windows" ]; then EXT=".exe"; fi
+          BINARY="forged${EXT}"
+          go build -trimpath \
+            -ldflags "-s -w -X github.com/vxyzview/forged/internal/config.Version=${{ github.ref_name }}" \
+            -o "$BINARY" ./cmd/forged
+          ls -la "$BINARY"
+          ./"$BINARY" --version 2>/dev/null || ./"$BINARY" version 2>/dev/null || true
+
+      - name: Package
+        run: |
+          ARCHIVE_BASENAME="forged-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}"
+          if [ -n "${{ matrix.goarm }}" ]; then
+            ARCHIVE_BASENAME="${ARCHIVE_BASENAME}v${{ matrix.goarm }}"
+          fi
+          mkdir -p dist
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            # Windows: zip (no tar on user machines)
+            cp "forged.exe" "$ARCHIVE_BASENAME.exe"
+            cp LICENSE "$ARCHIVE_BASENAME-LICENSE.txt" 2>/dev/null || true
+            zip -j "dist/${ARCHIVE_BASENAME}.zip" "$ARCHIVE_BASENAME.exe" "$ARCHIVE_BASENAME-LICENSE.txt" README.md
+          else
+            cp "forged" "$ARCHIVE_BASENAME"
+            tar -czf "dist/${ARCHIVE_BASENAME}.tar.gz" "$ARCHIVE_BASENAME"
+          fi
+          # Checksums for every artifact
+          (cd dist && sha256sum ./* > SHA256SUMS.txt)
+          ls -la dist/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: forged-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm }}
+          path: dist/*
+
+  release:
+    name: GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -la artifacts/
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: forged ${{ github.ref_name }}
+          body: |
+            ## forged ${{ github.ref_name }}
+
+            One-command Android kernel builder — clang-only, live TUI, single binary.
+
+            ```sh
+            curl -fsSL https://raw.githubusercontent.com/vxyzview/forged/main/install.sh | bash
+            ```
+
+            > **Note:** kernel *builds* need Linux. macOS/Windows binaries are for
+            > remote workflows — running `forged config`/`info`, editing configs,
+            > cloning sources, and driving builds over SSH — not for compiling
+            > a kernel locally.
+
+            ### Pick your archive
+
+            | OS | Arch | Archive |
+            |---|---|---|
+            | Linux | x86_64 (amd64) | `forged-${{ github.ref_name }}-linux-amd64.tar.gz` |
+            | Linux | arm64 | `forged-${{ github.ref_name }}-linux-arm64.tar.gz` |
+            | Linux | x86 (386) | `forged-${{ github.ref_name }}-linux-386.tar.gz` |
+            | Linux | armv7 | `forged-${{ github.ref_name }}-linux-armv7.tar.gz` |
+            | macOS | Apple Silicon (arm64) | `forged-${{ github.ref_name }}-darwin-arm64.tar.gz` |
+            | macOS | Intel (amd64) | `forged-${{ github.ref_name }}-darwin-amd64.tar.gz` |
+            | Windows | x86_64 (amd64) | `forged-${{ github.ref_name }}-windows-amd64.zip` |
+            | Windows | arm64 | `forged-${{ github.ref_name }}-windows-arm64.zip` |
+
+            Verify a download with `SHA256SUMS.txt`.
+          files: artifacts/*

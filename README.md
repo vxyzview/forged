@@ -65,11 +65,23 @@ $ forged build
 
 ## Install
 
+One-liner — grabs the right prebuilt binary for your machine from GitHub Releases, verifies the checksum, and installs it:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vxyzview/forged/main/install.sh | bash
+```
+
+Supported: **linux** (amd64, arm64, 386, armv7), **macOS** (Intel & Apple Silicon), **Windows** (amd64 & arm64 — download the `.zip` manually).
+
+> Kernel *builds* need Linux — that's where the kernel toolchains live. On macOS and Windows, forged is still handy for `forged config`, `forged info`, cloning sources, and driving remote builds over SSH.
+
+### With `go install`
+
 ```bash
 go install github.com/vxyzview/forged/cmd/forged@latest
 ```
 
-or build from source:
+### From source
 
 ```bash
 git clone https://github.com/vxyzview/forged.git
