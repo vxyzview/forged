@@ -38,14 +38,20 @@ Enter
 Sleep 7.5s
 
 # ── 4 · The flashable ZIP ────────────────────────────────────────────
-Type "ls -lh releases/" Enter
+Clear
+Sleep 300ms
+Type "ls -lh test/fixtures/kernel-fixture/releases/" Enter
 Sleep 1.4s
 
 # ── 5 · Config explorer on the example config ────────────────────────
+Clear
+Sleep 300ms
 Type "forged info config/example_build_config.toml" Enter
 Sleep 3.2s
 
 # ── 6 · Where to go next ─────────────────────────────────────────────
+Clear
+Sleep 300ms
 Type "echo ' forge faster → github.com/vxyzview/forged'" Enter
 Sleep 1.6s
 
